@@ -37,9 +37,13 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Import Vapi routes
+import vapiRoutes from './routes/vapiRoutes';
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/vapi', vapiRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

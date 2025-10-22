@@ -1,50 +1,27 @@
 /**
  * FM Radio Voice AI Screen
  *
- * This is the main (and only) screen for the FM Radio device.
- * It provides a minimal interface for voice AI interaction.
+ * Main screen for the FM Radio device using Vapi for voice AI.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useConversation } from '@11labs/react';
-import { VoiceRadioService, VoiceMessage, ConversationStatus } from '../src/services/VoiceRadioService';
+import { VapiService, VapiMessage, ConversationStatus } from '../src/services/VapiService';
 import { deviceAuthService } from '../src/services/DeviceAuthService';
+import Constants from 'expo-constants';
 
-// Agent ID from 11Labs (this should match your voice AI agent)
-const VOICE_AGENT_ID = 'n3MbanaRoXM0G18j3JS5';
+// Get Vapi config from environment
+const VAPI_PUBLIC_KEY = Constants.expoConfig?.extra?.vapiPublicKey || process.env.EXPO_PUBLIC_VAPI_PUBLIC_KEY || '';
+const VAPI_ASSISTANT_ID = Constants.expoConfig?.extra?.vapiAssistantId || process.env.EXPO_PUBLIC_VAPI_ASSISTANT_ID || '';
 
 export default function RadioScreen() {
   const [status, setStatus] = useState<ConversationStatus>('idle');
-  const [messages, setMessages] = useState<VoiceMessage[]>([]);
+  const [messages, setMessages] = useState<VapiMessage[]>([]);
   const [deviceId, setDeviceId] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Initialize voice service
-  const [voiceService] = useState(() =>
-    new VoiceRadioService({
-      agentId: VOICE_AGENT_ID,
-      onMessage: (message) => {
-        setMessages(prev => [...prev, message]);
-      },
-      onStatusChange: (newStatus) => {
-        setStatus(newStatus);
-      },
-      onError: (error) => {
-        console.error('Voice error:', error);
-      },
-      onToolCall: (toolCall) => {
-        console.log('Tool called:', toolCall);
-      }
-    })
-  );
-
-  // Initialize conversation hook from 11Labs
-  const conversationHook = useConversation({
-    onMessage: voiceService.handleMessage,
-    onStateUpdate: voiceService.handleStateUpdate,
-    onError: (error) => console.error('Conversation error:', error)
-  });
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [vapiService, setVapiService] = useState<VapiService | null>(null);
 
   // Initialize device authentication on mount
   useEffect(() => {
@@ -65,36 +42,97 @@ export default function RadioScreen() {
     initializeDevice();
   }, []);
 
-  // Initialize voice service with conversation hook
+  // Initialize Vapi service when authenticated
   useEffect(() => {
-    if (conversationHook) {
-      voiceService.initializeConversationHook(conversationHook);
+    if (isAuthenticated && !vapiService) {
+      console.log('🎤 Initializing Vapi service...');
+      console.log('Public Key:', VAPI_PUBLIC_KEY ? 'Set' : 'Missing');
+      console.log('Assistant ID:', VAPI_ASSISTANT_ID ? 'Set' : 'Missing');
+
+      if (!VAPI_PUBLIC_KEY || !VAPI_ASSISTANT_ID) {
+        console.error('❌ Vapi credentials not configured!');
+        console.error('Please set EXPO_PUBLIC_VAPI_PUBLIC_KEY and EXPO_PUBLIC_VAPI_ASSISTANT_ID in .env');
+        return;
+      }
+
+      const service = new VapiService({
+        publicKey: VAPI_PUBLIC_KEY,
+        assistantId: VAPI_ASSISTANT_ID,
+        onMessage: (message) => {
+          console.log('📩 Message received:', message);
+          setMessages(prev => [...prev, message]);
+        },
+        onStatusChange: (newStatus) => {
+          console.log('📊 Status changed:', newStatus);
+          setStatus(newStatus);
+        },
+        onError: (error) => {
+          console.error('❌ Vapi error:', error);
+        },
+        onSpeechStart: () => {
+          console.log('🎤 User started speaking');
+          setIsSpeaking(true);
+        },
+        onSpeechEnd: () => {
+          console.log('🎤 User stopped speaking');
+          setIsSpeaking(false);
+        }
+      });
+
+      setVapiService(service);
+
+      return () => {
+        service.destroy();
+      };
     }
-  }, [conversationHook, voiceService]);
+  }, [isAuthenticated]);
 
   // Start voice conversation
   const handleStart = useCallback(async () => {
-    try {
-      await voiceService.startConversation();
-    } catch (error) {
-      console.error('Failed to start conversation:', error);
+    if (!vapiService) {
+      console.error('❌ Vapi service not initialized');
+      return;
     }
-  }, [voiceService]);
+
+    try {
+      await vapiService.startConversation();
+    } catch (error) {
+      console.error('❌ Failed to start conversation:', error);
+    }
+  }, [vapiService]);
 
   // Stop voice conversation
-  const handleStop = useCallback(async () => {
-    try {
-      await voiceService.stopConversation();
-    } catch (error) {
-      console.error('Failed to stop conversation:', error);
+  const handleStop = useCallback(() => {
+    if (!vapiService) {
+      console.error('❌ Vapi service not initialized');
+      return;
     }
-  }, [voiceService]);
+
+    try {
+      vapiService.stopConversation();
+    } catch (error) {
+      console.error('❌ Failed to stop conversation:', error);
+    }
+  }, [vapiService]);
+
+  // Toggle mute
+  const handleToggleMute = useCallback(() => {
+    if (!vapiService) {
+      return;
+    }
+
+    const newMutedState = !isMuted;
+    vapiService.setMuted(newMutedState);
+    setIsMuted(newMutedState);
+  }, [vapiService, isMuted]);
 
   // Clear message history
   const handleClear = useCallback(() => {
-    voiceService.clearHistory();
+    if (vapiService) {
+      vapiService.clearHistory();
+    }
     setMessages([]);
-  }, [voiceService]);
+  }, [vapiService]);
 
   // Status indicator color
   const getStatusColor = () => {
@@ -106,6 +144,22 @@ export default function RadioScreen() {
     }
   };
 
+  // Format message for display
+  const formatMessage = (msg: VapiMessage) => {
+    switch (msg.type) {
+      case 'transcript':
+        return msg.metadata?.role === 'user'
+          ? `You: ${msg.content}`
+          : `AI: ${msg.content}`;
+      case 'function-call':
+        return `🔧 ${msg.content}`;
+      case 'function-result':
+        return `📦 ${msg.content}`;
+      default:
+        return msg.content;
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -113,7 +167,11 @@ export default function RadioScreen() {
         <Text style={styles.title}>Cogito Voice Radio</Text>
         <View style={styles.statusContainer}>
           <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
-          <Text style={styles.statusText}>{status}</Text>
+          <Text style={styles.statusText}>
+            {status}
+            {isSpeaking && ' • Speaking'}
+            {isMuted && ' • Muted'}
+          </Text>
         </View>
         <Text style={styles.deviceId}>Device: {deviceId.substring(0, 8)}</Text>
       </View>
@@ -124,18 +182,21 @@ export default function RadioScreen() {
         contentContainerStyle={styles.messagesContent}
       >
         {messages.length === 0 ? (
-          <Text style={styles.emptyText}>No messages yet. Start a conversation!</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No messages yet.</Text>
+            <Text style={styles.emptySubtext}>Start a conversation to begin!</Text>
+          </View>
         ) : (
           messages.map((msg, index) => (
             <View
               key={index}
               style={[
                 styles.message,
-                msg.type === 'transcript' ? styles.userMessage : styles.aiMessage
+                msg.metadata?.role === 'user' ? styles.userMessage : styles.aiMessage
               ]}
             >
               <Text style={styles.messageType}>{msg.type.toUpperCase()}</Text>
-              <Text style={styles.messageContent}>{msg.content}</Text>
+              <Text style={styles.messageContent}>{formatMessage(msg)}</Text>
               <Text style={styles.messageTime}>
                 {msg.timestamp.toLocaleTimeString()}
               </Text>
@@ -146,36 +207,53 @@ export default function RadioScreen() {
 
       {/* Controls */}
       <View style={styles.controls}>
-        {status === 'idle' || status === 'disconnected' ? (
-          <TouchableOpacity
-            style={[styles.button, styles.startButton]}
-            onPress={handleStart}
-            disabled={!isAuthenticated}
-          >
-            <Text style={styles.buttonText}>🎤 Start Voice</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.button, styles.stopButton]}
-            onPress={handleStop}
-          >
-            <Text style={styles.buttonText}>⏹️ Stop Voice</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.controlRow}>
+          {status === 'idle' || status === 'disconnected' ? (
+            <TouchableOpacity
+              style={[styles.button, styles.startButton]}
+              onPress={handleStart}
+              disabled={!isAuthenticated || !vapiService}
+            >
+              <Text style={styles.buttonText}>🎤 Start Voice</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.button, styles.muteButton]}
+                onPress={handleToggleMute}
+              >
+                <Text style={styles.buttonText}>
+                  {isMuted ? '🔇 Unmute' : '🔊 Mute'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.stopButton]}
+                onPress={handleStop}
+              >
+                <Text style={styles.buttonText}>⏹️ Stop</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
 
         <TouchableOpacity
           style={[styles.button, styles.clearButton]}
           onPress={handleClear}
         >
-          <Text style={styles.buttonText}>🗑️ Clear</Text>
+          <Text style={styles.buttonText}>🗑️ Clear History</Text>
         </TouchableOpacity>
       </View>
 
       {/* Footer Info */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          FM Radio Voice AI • For Alzheimer's & Senior Care
+          Powered by Vapi • For Alzheimer's & Senior Care
         </Text>
+        {(!VAPI_PUBLIC_KEY || !VAPI_ASSISTANT_ID) && (
+          <Text style={styles.warningText}>
+            ⚠️ Vapi not configured - check .env file
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -226,11 +304,22 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
   },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
   emptyText: {
-    fontSize: 16,
+    fontSize: 18,
+    color: '#cbd5e1',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
-    marginTop: 40,
   },
   message: {
     padding: 12,
@@ -263,12 +352,15 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   controls: {
-    flexDirection: 'row',
     padding: 16,
-    gap: 12,
     backgroundColor: '#1e293b',
     borderTopWidth: 1,
     borderTopColor: '#334155',
+  },
+  controlRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
   },
   button: {
     flex: 1,
@@ -281,6 +373,9 @@ const styles = StyleSheet.create({
   },
   stopButton: {
     backgroundColor: '#ef4444',
+  },
+  muteButton: {
+    backgroundColor: '#f59e0b',
   },
   clearButton: {
     backgroundColor: '#64748b',
@@ -298,5 +393,10 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     color: '#64748b',
+  },
+  warningText: {
+    fontSize: 10,
+    color: '#ef4444',
+    marginTop: 4,
   },
 });
