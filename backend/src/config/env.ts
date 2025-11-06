@@ -36,6 +36,10 @@ export const config = {
   // 11Labs
   elevenLabsApiKey: process.env.ELEVENLABS_API_KEY || '',
 
+  // VAPI
+  vapiAssistantConfigId: process.env.VAPI_ASSISTANT_CONFIG_ID || 'df2a9bc2-b7e1-4640-af14-1e69930712c5',
+  vapiApiKey: process.env.VAPI_API_KEY || '',
+
   // CORS
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8081',
 

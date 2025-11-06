@@ -38,12 +38,15 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // Import Vapi routes
-import vapiRoutes from './routes/vapiRoutes';
+import vapiRoutes from './vapi/routes';
+// Import Microcontroller routes
+import microcontrollerRoutes from './microcontroller/routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/vapi', vapiRoutes);
+app.use('/api/microcontroller', microcontrollerRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

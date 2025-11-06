@@ -4,7 +4,7 @@ import {
   saveMessage,
   logConversation,
   markMessageRead
-} from '../controllers/vapiController';
+} from './controller';
 
 const router = Router();
 
@@ -26,3 +26,5 @@ router.post('/log-conversation', logConversation);
 router.post('/mark-read', markMessageRead);
 
 export default router;
+
+
