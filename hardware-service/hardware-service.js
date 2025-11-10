@@ -1,258 +1,200 @@
 /**
- * Hardware Service - Node.js Coordinator
- * 
- * Coordinates communication between:
- * - Python GUI (display)
- * - Chromium Browser (headless, audio)
- * - GPIO buttons
- * - FM Radio control
+ * Cogito Hardware Service
+ * - Express HTTP API (port 3001)
+ * - WebSocket server (port 8080)
+ * - GPIO via pigpio (LEDs on 17,27; buttons on 22,23)
+ * - Radio control via Python script (python/radio-control.py)
  */
 
 const express = require('express');
 const WebSocket = require('ws');
-const { Gpio } = require('onoff');
+const fs = require('fs');
+const path = require('path');
+const { spawn } = require('child_process');
 
 const app = express();
 const wss = new WebSocket.Server({ port: 8080 });
 
-// Track connected clients
-const clients = {
-  browser: null,   // Headless Chromium
-  display: null    // Python GUI
-};
+// Detect if we are on a real Pi
+const IS_HARDWARE = fs.existsSync('/proc/device-tree/model');
 
-// GPIO button (voice button)
-const VOICE_BUTTON_PIN = 17;
-let voiceButton = null;
+// ------------------------------
+// Python bridge (radio control)
+// ------------------------------
+const PY = fs.existsSync(path.join(__dirname, 'venv/bin/python'))
+  ? path.join(__dirname, 'venv/bin/python')
+  : 'python3';
 
-// FM Radio control
-const radio = {
-  currentVolume: 100,
-  savedVolume: 100,
-  
-  duck() {
-    this.savedVolume = this.currentVolume;
-    this.currentVolume = 20;
-    console.log('📻 Radio ducked to 20%');
-    // TODO: Send I2C command to FM radio module
-    // i2c.write(radioAddress, [VOLUME_CMD, 20]);
-  },
-  
-  mute() {
-    this.currentVolume = 0;
-    console.log('📻 Radio muted');
-    // TODO: Send I2C command to FM radio module
-    // i2c.write(radioAddress, [VOLUME_CMD, 0]);
-  },
-  
-  restore() {
-    this.currentVolume = this.savedVolume || 100;
-    console.log(`📻 Radio restored to ${this.currentVolume}%`);
-    // TODO: Send I2C command to FM radio module
-    // i2c.write(radioAddress, [VOLUME_CMD, this.currentVolume]);
+function radioControl(actionOrFreq) {
+  let args;
+  if (['up', 'down', 'stop'].includes(actionOrFreq)) {
+    args = [path.join(__dirname, 'python', 'radio-control.py'), actionOrFreq];
+  } else if (actionOrFreq === 'restore') {
+    args = [path.join(__dirname, 'python', 'radio-control.py'), 'up'];
+  } else {
+    args = [path.join(__dirname, 'python', 'radio-control.py'), 'set', String(actionOrFreq)];
   }
-};
 
-// WebSocket server
+  const p = spawn(PY, args);
+  p.stdout.on('data', d => console.log('Radio:', d.toString().trim()));
+  p.stderr.on('data', d => console.error('Radio error:', d.toString().trim()));
+}
+
+// ------------------------------
+// WebSocket client registry
+// ------------------------------
+const clients = { browser: null, display: null };
+
 wss.on('connection', (ws, req) => {
-  // Identify client type from query param
-  const url = new URL(req.url, `ws://${req.headers.host}`);
-  const clientType = url.searchParams.get('client') || 'unknown';
-  
-  console.log(`✅ ${clientType} connected`);
+  const params = new URLSearchParams((req.url.split('?')[1] || ''));
+  const clientType = params.get('client') || 'unknown';
+  console.log(clientType + ' connected');
+
   clients[clientType] = ws;
-  
-  ws.on('message', (message) => {
+  ws.send(JSON.stringify({ type: 'CONNECTED', hardware: IS_HARDWARE }));
+
+  ws.on('message', (msg) => {
     try {
-      const data = JSON.parse(message);
-      handleClientMessage(clientType, data);
-    } catch (error) {
-      console.error('Error parsing message:', error);
+      const data = JSON.parse(String(msg));
+      console.log('Message from ' + clientType + ':', data.type || 'unknown');
+      // Add any cross-client forwarding here if needed
+    } catch (e) {
+      console.warn('Invalid WS message');
     }
   });
-  
+
   ws.on('close', () => {
-    console.log(`❌ ${clientType} disconnected`);
+    console.log(clientType + ' disconnected');
     clients[clientType] = null;
-  });
-  
-  ws.on('error', (error) => {
-    console.error(`❌ ${clientType} error:`, error);
   });
 });
 
-/**
- * Handle messages from clients
- */
-function handleClientMessage(source, data) {
-  console.log(`📨 Message from ${source}:`, data.type);
-  
-  switch(data.type) {
-    case 'VOICE_STARTED':
-      // Browser told us voice started
-      sendToDisplay({ type: 'VOICE_STARTED', timestamp: Date.now() });
-      radio.duck();
-      break;
-      
-    case 'VOICE_STOPPED':
-      // Browser told us voice ended
-      sendToDisplay({ type: 'VOICE_STOPPED', timestamp: Date.now() });
-      radio.restore();
-      break;
-      
-    case 'USER_SPEAKING':
-      // User is speaking
-      sendToDisplay({ type: 'USER_SPEAKING' });
-      radio.mute();
-      break;
-      
-    case 'USER_STOPPED_SPEAKING':
-      // User stopped speaking
-      sendToDisplay({ type: 'USER_STOPPED_SPEAKING' });
-      radio.duck(); // Keep ducked while waiting for AI
-      break;
-      
-    case 'AI_SPEAKING':
-      // AI is responding
-      sendToDisplay({ type: 'AI_SPEAKING' });
-      radio.duck(); // Keep ducked during AI response
-      break;
-      
-    case 'NEW_MESSAGE':
-      // Caregiver message arrived
-      sendToDisplay({
-        type: 'NEW_MESSAGE',
-        message: data.message
-      });
-      break;
-      
-    case 'REMINDER':
-      // Reminder triggered
-      sendToDisplay({
-        type: 'REMINDER',
-        reminder: data.reminder
-      });
-      break;
-      
-    case 'ERROR':
-      // Error occurred
-      sendToDisplay({
-        type: 'ERROR',
-        error: data.error
-      });
-      break;
-      
-    default:
-      console.log(`Unknown message type: ${data.type}`);
-  }
+function sendToDisplay(payload) {
+  const ws = clients.display;
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
+}
+function sendToBrowser(payload) {
+  const ws = clients.browser;
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(payload));
 }
 
-/**
- * Send message to Python GUI display
- */
-function sendToDisplay(data) {
-  if (clients.display && clients.display.readyState === WebSocket.OPEN) {
-    clients.display.send(JSON.stringify(data));
-    console.log(`📤 Sent to display: ${data.type}`);
-  } else {
-    console.warn('⚠️ Display not connected');
-  }
-}
+// ------------------------------
+// GPIO via pigpio (recommended)
+// ------------------------------
+let Gpio = null;
+let playButton = null, nextButton = null, powerLed = null, reminderLed = null;
 
-/**
- * Send message to browser
- */
-function sendToBrowser(data) {
-  if (clients.browser && clients.browser.readyState === WebSocket.OPEN) {
-    clients.browser.send(JSON.stringify(data));
-    console.log(`📤 Sent to browser: ${data.type}`);
-  } else {
-    console.warn('⚠️ Browser not connected');
-  }
-}
-
-/**
- * Initialize GPIO buttons
- */
-function initializeGPIO() {
+const GPIO_ENABLED = (() => {
   try {
-    voiceButton = new Gpio(VOICE_BUTTON_PIN, 'in', 'falling', { debounceTimeout: 10 });
-    
-    voiceButton.watch((err, value) => {
-      if (err) {
-        console.error('GPIO error:', err);
-        return;
-      }
-      
-      console.log('🔘 Voice button pressed!');
-      
-      // Tell browser to start Vapi
-      sendToBrowser({ type: 'START_VOICE' });
-      
-      // Tell display we're starting
-      sendToDisplay({ 
-        type: 'VOICE_STARTING',
-        timestamp: Date.now() 
-      });
-      
-      // Duck the radio immediately
-      radio.duck();
-    });
-    
-    console.log('✅ GPIO initialized (pin 17)');
-  } catch (error) {
-    console.error('❌ GPIO initialization failed:', error);
-    console.log('⚠️ Running without GPIO (for testing)');
+    if (!IS_HARDWARE) return false;
+    Gpio = require('pigpio').Gpio;
+    return true;
+  } catch (e) {
+    console.log('pigpio not available:', e.message);
+    return false;
   }
+})();
+
+if (GPIO_ENABLED) {
+  try {
+    // LEDs: 17 (power), 27 (reminder)
+    powerLed = new Gpio(17, { mode: Gpio.OUTPUT });
+    reminderLed = new Gpio(27, { mode: Gpio.OUTPUT });
+    powerLed.digitalWrite(1); // power LED on
+
+    // Buttons: 22 (play), 23 (next), with pull-ups. We will poll for falling edge.
+    playButton = new Gpio(22, { mode: Gpio.INPUT, pullUpDown: Gpio.PUD_UP });
+    nextButton = new Gpio(23, { mode: Gpio.INPUT, pullUpDown: Gpio.PUD_UP });
+
+    console.log('GPIO (pigpio) initialized');
+  } catch (e) {
+    console.error('GPIO (pigpio) init error:', e.message);
+  }
+} else {
+  console.log('Running without GPIO (mock mode or pigpio missing)');
 }
 
-/**
- * Health check endpoint
- */
+// Simple polling for button press (active-low)
+function pollButton(gpio, onPress, name) {
+  if (!gpio) return;
+  let last = 1;
+  setInterval(() => {
+    let v;
+    try {
+      v = gpio.digitalRead();
+    } catch {
+      return;
+    }
+    if (last === 1 && v === 0) {
+      console.log((name || 'button') + ' pressed');
+      try { onPress(); } catch {}
+    }
+    last = v;
+  }, 40);
+}
+
+// Button behaviors
+pollButton(nextButton, () => {
+  radioControl('up');
+  if (reminderLed) {
+    const cur = reminderLed.digitalRead();
+    reminderLed.digitalWrite(cur ^ 1);
+  }
+  sendToDisplay({ type: 'REMINDER', reminder: { text: 'Check your medication' } });
+}, 'next');
+
+pollButton(playButton, () => {
+  // choose down for station step, or swap to duck/voice action later
+  radioControl('down');
+}, 'play');
+
+// ------------------------------
+// HTTP API
+// ------------------------------
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    clients: {
-      browser: clients.browser ? 'connected' : 'disconnected',
-      display: clients.display ? 'connected' : 'disconnected'
-    },
-    radio: {
-      volume: radio.currentVolume
-    }
+    hardware: IS_HARDWARE,
+    gpio: GPIO_ENABLED,
+    clients: { browser: !!clients.browser, display: !!clients.display }
   });
 });
 
-/**
- * Start server
- */
+app.post('/radio/set/:mhz', (req, res) => {
+  radioControl(req.params.mhz);
+  res.json({ ok: true, tuned: req.params.mhz });
+});
+
+app.post('/radio/up', (req, res) => {
+  radioControl('up');
+  res.json({ ok: true });
+});
+
+app.post('/radio/down', (req, res) => {
+  radioControl('down');
+  res.json({ ok: true });
+});
+
+app.post('/radio/stop', (req, res) => {
+  radioControl('stop');
+  res.json({ ok: true });
+});
+
+// ------------------------------
+// Start HTTP server
+// ------------------------------
 const PORT = 3001;
 app.listen(PORT, () => {
-  console.log('🚀 Hardware Service started');
-  console.log(`📡 WebSocket server: ws://localhost:8080`);
-  console.log(`🌐 HTTP server: http://localhost:${PORT}`);
-  console.log('');
-  
-  // Initialize GPIO
-  initializeGPIO();
-  
-  console.log('✅ Ready to coordinate hardware!');
-  console.log('');
-  console.log('Waiting for clients:');
-  console.log('  - Python GUI: ws://localhost:8080?client=display');
-  console.log('  - Browser: ws://localhost:8080?client=browser');
-  console.log('');
+  console.log('Hardware service running on port ' + PORT);
+  console.log('WebSocket server on port 8080');
+  console.log('Mode: ' + (IS_HARDWARE ? 'HARDWARE' : 'MOCK'));
 });
 
-// Graceful shutdown
+// ------------------------------
+// Cleanup
+// ------------------------------
 process.on('SIGINT', () => {
-  console.log('\n🛑 Shutting down...');
-  
-  if (voiceButton) {
-    voiceButton.unexport();
-  }
-  
-  wss.close(() => {
-    process.exit(0);
-  });
+  console.log('Shutting down...');
+  try { if (powerLed) powerLed.digitalWrite(0); } catch {}
+  process.exit();
 });
-
