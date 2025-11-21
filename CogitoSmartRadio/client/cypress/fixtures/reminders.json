@@ -1,0 +1,20 @@
+[
+  {
+    "id": "rem-1",
+    "label": "Take Donepezil",
+    "scheduledAt": "2025-11-21T14:00:00.000Z",
+    "recurrence": "DAILY",
+    "snoozeMinutes": 10,
+    "active": true,
+    "medication": {
+      "id": "med-1",
+      "name": "Donepezil",
+      "dosage": "5mg",
+      "instructions": "Morning dose"
+    },
+    "logs": [
+      { "id": "log-1", "triggeredAt": "2025-11-20T14:00:00.000Z", "ackTimeMs": 8000 }
+    ]
+  }
+]
+
