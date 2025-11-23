@@ -4,15 +4,19 @@
  * Main screen for the FM Radio device using Vapi for voice AI.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { VapiService, VapiMessage, ConversationStatus } from '../src/services/VapiService';
 import { deviceAuthService } from '../src/services/DeviceAuthService';
 import Constants from 'expo-constants';
+import { io, Socket } from 'socket.io-client';
 
 // Get Vapi config from environment
 const VAPI_PUBLIC_KEY = Constants.expoConfig?.extra?.vapiPublicKey || process.env.EXPO_PUBLIC_VAPI_PUBLIC_KEY || '';
 const VAPI_ASSISTANT_ID = Constants.expoConfig?.extra?.vapiAssistantId || process.env.EXPO_PUBLIC_VAPI_ASSISTANT_ID || '';
+
+// Hardware service WebSocket URL (running on Pi at localhost:3001)
+const HARDWARE_SERVICE_URL = process.env.EXPO_PUBLIC_HARDWARE_SERVICE_URL || 'http://localhost:3001';
 
 export default function RadioScreen() {
   const [status, setStatus] = useState<ConversationStatus>('idle');
@@ -22,6 +26,8 @@ export default function RadioScreen() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [vapiService, setVapiService] = useState<VapiService | null>(null);
+  const [hardwareMode, setHardwareMode] = useState<'radio' | 'ai'>('radio');
+  const socketRef = useRef<Socket | null>(null);
 
   // Initialize device authentication on mount
   useEffect(() => {
@@ -86,6 +92,79 @@ export default function RadioScreen() {
       };
     }
   }, [isAuthenticated]);
+
+  // Connect to hardware service WebSocket and listen for button events
+  useEffect(() => {
+    if (!vapiService) return;
+
+    console.log('🔌 Connecting to hardware service:', HARDWARE_SERVICE_URL);
+
+    // Create socket connection to hardware service
+    const socket = io(HARDWARE_SERVICE_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10
+    });
+
+    socketRef.current = socket;
+
+    // Connection established
+    socket.on('connect', () => {
+      console.log('✅ Connected to hardware service');
+    });
+
+    // Listen for button press → START voice AI
+    socket.on('start-voice', async (data) => {
+      console.log('🎤 Hardware button pressed - Starting Vapi conversation', data);
+      setHardwareMode('ai');
+
+      try {
+        await vapiService.startConversation();
+        console.log('✅ Vapi conversation started via button');
+      } catch (error) {
+        console.error('❌ Failed to start Vapi via button:', error);
+      }
+    });
+
+    // Listen for auto-timeout or button press → STOP voice AI
+    socket.on('stop-voice', (data) => {
+      console.log('📻 Returning to radio mode - Stopping Vapi conversation', data);
+      setHardwareMode('radio');
+
+      try {
+        vapiService.stopConversation();
+        console.log('✅ Vapi conversation stopped');
+      } catch (error) {
+        console.error('❌ Failed to stop Vapi:', error);
+      }
+    });
+
+    // Listen for general mode changes
+    socket.on('mode-changed', (data) => {
+      console.log('🔄 Mode changed:', data);
+      setHardwareMode(data.mode);
+    });
+
+    // Connection errors
+    socket.on('connect_error', (error) => {
+      console.error('❌ Hardware service connection error:', error.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('🔌 Disconnected from hardware service:', reason);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log('🧹 Cleaning up hardware service connection');
+      socket.off('start-voice');
+      socket.off('stop-voice');
+      socket.off('mode-changed');
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [vapiService]);
 
   // Start voice conversation
   const handleStart = useCallback(async () => {
@@ -173,6 +252,9 @@ export default function RadioScreen() {
             {isMuted && ' • Muted'}
           </Text>
         </View>
+        <Text style={styles.hardwareMode}>
+          Mode: {hardwareMode === 'ai' ? '🎤 AI' : '📻 Radio'}
+        </Text>
         <Text style={styles.deviceId}>Device: {deviceId.substring(0, 8)}</Text>
       </View>
 
@@ -292,6 +374,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#cbd5e1',
     textTransform: 'capitalize',
+  },
+  hardwareMode: {
+    fontSize: 14,
+    color: '#10b981',
+    fontWeight: '600',
+    marginTop: 8,
   },
   deviceId: {
     fontSize: 12,

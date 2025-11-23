@@ -1,0 +1,33 @@
+# Cogito Button Handler - Python GPIO Monitor
+# This service monitors GPIO 17 for button presses to toggle AI/Radio mode
+#
+# Installation:
+# sudo cp cogito-button.service /etc/systemd/system/
+# sudo systemctl daemon-reload
+# sudo systemctl enable cogito-button.service
+# sudo systemctl start cogito-button.service
+
+[Unit]
+Description=Cogito Button Handler
+After=cogito-hardware.service
+Requires=cogito-hardware.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/cogito/hardware-service
+ExecStart=/usr/bin/python3 python/button-vapi-handler.py
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cogito-button
+
+# Ensure we can access GPIO
+SupplementaryGroups=gpio i2c
+
+[Install]
+WantedBy=multi-user.target

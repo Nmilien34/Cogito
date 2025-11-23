@@ -1,0 +1,32 @@
+# Cogito Hardware Service - Node.js Server
+# This service runs the hardware service that coordinates radio control and mode switching
+#
+# Installation:
+# sudo cp cogito-hardware.service /etc/systemd/system/
+# sudo systemctl daemon-reload
+# sudo systemctl enable cogito-hardware.service
+# sudo systemctl start cogito-hardware.service
+
+[Unit]
+Description=Cogito Hardware Service
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/cogito/hardware-service
+ExecStart=/usr/bin/node hardware-service.js
+Restart=always
+RestartSec=5
+
+# Environment
+Environment=NODE_ENV=production
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cogito-hardware
+
+[Install]
+WantedBy=multi-user.target

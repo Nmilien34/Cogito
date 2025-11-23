@@ -1,0 +1,48 @@
+# Cogito Frontend - Chromium Kiosk Mode
+# This service runs the React Native web frontend in Chromium kiosk mode
+# The frontend connects to Vapi and hardware service via WebSocket
+#
+# Installation:
+# sudo cp cogito-frontend.service /etc/systemd/system/
+# sudo systemctl daemon-reload
+# sudo systemctl enable cogito-frontend.service
+# sudo systemctl start cogito-frontend.service
+
+[Unit]
+Description=Cogito Frontend (Chromium Kiosk)
+After=graphical.target cogito-hardware.service
+Requires=graphical.target
+Wants=cogito-hardware.service
+
+[Service]
+Type=simple
+User=pi
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+
+# Start Chromium in kiosk mode
+# Adjust the URL to match where your frontend is served
+# For Expo/React Native: expo start --web and use http://localhost:8081
+# For production build: serve your build folder
+ExecStart=/usr/bin/chromium-browser \
+  --kiosk \
+  --noerrdialogs \
+  --disable-infobars \
+  --no-first-run \
+  --disable-session-crashed-bubble \
+  --disable-restore-session-state \
+  --autoplay-policy=no-user-gesture-required \
+  --enable-features=WebRTC \
+  --allow-file-access-from-files \
+  http://localhost:8081
+
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cogito-frontend
+
+[Install]
+WantedBy=graphical.target

@@ -24,42 +24,50 @@ console.log('Cogito Hardware Service Starting...');
 // Set mode endpoint
 app.post('/api/mode/set', (req, res) => {
   const { mode } = req.body;
-  
+
   if (!mode || (mode !== 'radio' && mode !== 'ai')) {
     return res.status(400).json({ error: 'Invalid mode. Use "radio" or "ai"' });
   }
-  
+
   if (mode === 'ai' && currentMode === 'radio') {
     // Enter AI mode
     currentMode = 'ai';
     lastSpeechTime = Date.now();
-    console.log('AI MODE - Listening');
-    
+    console.log('🎤 AI MODE - Listening');
+
     // Stop radio
     exec('python3 python/radio-control.py stop', (error) => {
       if (error) console.error('Radio stop error:', error);
     });
-    
-    // Notify WebSocket clients
+
+    // Notify WebSocket clients about mode change
     io.emit('mode-changed', { mode: 'ai', timestamp: lastSpeechTime });
-    
+
+    // Tell frontend to START Vapi conversation
+    io.emit('start-voice', { timestamp: lastSpeechTime });
+    console.log('📡 Emitted: start-voice to frontend');
+
     res.json({ mode: 'ai', message: 'AI mode activated' });
-    
+
   } else if (mode === 'radio' && currentMode === 'ai') {
     // Return to radio mode
     currentMode = 'radio';
-    console.log('RADIO MODE - Resuming playback');
-    
+    console.log('📻 RADIO MODE - Resuming playback');
+
+    // Tell frontend to STOP Vapi conversation
+    io.emit('stop-voice', { timestamp: Date.now() });
+    console.log('📡 Emitted: stop-voice to frontend');
+
     // Resume radio
     exec('python3 python/radio-control.py resume', (error) => {
       if (error) console.error('Radio resume error:', error);
     });
-    
-    // Notify WebSocket clients
+
+    // Notify WebSocket clients about mode change
     io.emit('mode-changed', { mode: 'radio' });
-    
+
     res.json({ mode: 'radio', message: 'Radio mode activated' });
-    
+
   } else {
     res.json({ mode: currentMode, message: 'Already in that mode' });
   }
