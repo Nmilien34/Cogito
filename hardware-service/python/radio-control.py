@@ -64,11 +64,11 @@ def set_frequency(freq_mhz):
         msg = smbus2.i2c_msg.write(TEA5767_ADDR, data)
         bus.i2c_rdwr(msg)
         bus.close()
-        
+
         save_state(freq_mhz)
         print(f"📻 Tuned to {freq_mhz:.1f} MHz")
         return True
-        
+
     except Exception as e:
         print(f"❌ Error: {e}")
         return False
@@ -117,14 +117,14 @@ def get_status():
         bus.i2c_rdwr(msg)
         status = list(msg)
         bus.close()
-        
+
         ready = (status[0] & 0x80) >> 7
         band_limit = (status[0] & 0x40) >> 6
         pll = ((status[0] & 0x3F) << 8) | status[1]
         freq = pll_to_freq(pll)
         signal = (status[3] >> 4) & 0x0F
         stereo = (status[2] & 0x80) >> 7
-        
+
         print("="*40)
         print("📻 TEA5767 Radio Status")
         print("="*40)
@@ -135,7 +135,7 @@ def get_status():
         print(f"Band Limit:   {'Yes' if band_limit else 'No'}")
         print("="*40)
         return True
-        
+
     except Exception as e:
         print(f"❌ Error: {e}")
         return False
@@ -208,3 +208,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+

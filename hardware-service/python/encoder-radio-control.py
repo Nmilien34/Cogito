@@ -3,19 +3,14 @@
 ANO Encoder controls Radio Volume and Tuning
 - Rotate: Adjust volume or frequency
 - Press: Toggle between Volume and Tuning modes
+MODIFIED: Works without INT pin (continuous polling)
 """
-
 import time
 import RPi.GPIO as GPIO
 import board
 import busio
 from adafruit_bus_device.i2c_device import I2CDevice
 import subprocess
-
-# GPIO Setup
-GPIO.setmode(GPIO.BCM)
-INT_PIN = 27
-GPIO.setup(INT_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 # I2C Setup
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -46,9 +41,8 @@ def read_gpio():
         return None
 
 def set_volume(vol):
-    """Set system volume (placeholder - adjust for your audio system)"""
+    """Set system volume"""
     vol = max(0, min(100, vol))
-    # Using amixer to control Pi audio
     subprocess.run(['amixer', 'set', 'Master', f'{vol}%'], 
                    stdout=subprocess.DEVNULL, 
                    stderr=subprocess.DEVNULL)
@@ -56,14 +50,14 @@ def set_volume(vol):
 
 def tune_radio(freq):
     """Tune radio to frequency"""
-    freq = max(88.0, min(108.0, freq))  # FM range
+    freq = max(87.5, min(108.0, freq))
     subprocess.run(['python3', RADIO_SCRIPT, 'set', str(freq)],
                    stdout=subprocess.DEVNULL,
                    stderr=subprocess.DEVNULL)
     return freq
 
 print("="*60)
-print("🎛️  COGITO ENCODER CONTROL")
+print("🎛️  COGITO ENCODER CONTROL (Polling Mode)")
 print("="*60)
 print("ROTATE: Adjust volume or tuning")
 print("PRESS:  Toggle Volume ↔ Tuning mode")
@@ -83,56 +77,51 @@ last_position = 0
 
 try:
     while True:
-        if GPIO.input(INT_PIN) == 0:
-            current = read_gpio()
-            
-            if current is not None and current != last_value:
-                xor = current ^ last_value
-                
-                # ROTATION DETECTED
-                if xor & (1 << 15):
-                    bit15 = (current >> 15) & 1
-                    position += 1 if bit15 else -1
-                    
-                    # Check if position actually changed enough
-                    if abs(position - last_position) >= 1:
-                        delta = position - last_position
-                        last_position = position
-                        
-                        if mode == "VOLUME":
-                            volume += delta * volume_step
-                            volume = set_volume(volume)
-                            print(f"🔊 Volume: {volume}%")
-                        
-                        elif mode == "TUNING":
-                            frequency += delta * freq_step
-                            frequency = tune_radio(frequency)
-                            print(f"📻 Frequency: {frequency:.1f} MHz")
-                
-                # BUTTON PRESSED
-                if xor & 0x000040FE:
-                    if current & 0x000040FE:
-                        # Toggle mode
-                        mode = "TUNING" if mode == "VOLUME" else "VOLUME"
-                        print(f"\n{'='*60}")
-                        print(f"🔄 MODE: {mode}")
-                        print(f"{'='*60}")
-                        if mode == "VOLUME":
-                            print(f"🔊 Volume: {volume}%")
-                        else:
-                            print(f"📻 Frequency: {frequency:.1f} MHz")
-                        print()
-                
-                last_value = current
-            
-            # Wait for INT to reset
-            while GPIO.input(INT_PIN) == 0:
-                time.sleep(0.001)
-            
-            time.sleep(0.01)
+        # Poll continuously instead of waiting for INT
+        current = read_gpio()
         
-        time.sleep(0.001)
+        if current is not None and current != last_value:
+            # Filter out noise
+            if current == 0xFFFFFFFF or current == 0x00FFFFFF:
+                continue
+                
+            xor = current ^ last_value
+            
+            # ROTATION DETECTED
+            if xor & (1 << 15):
+                bit15 = (current >> 15) & 1
+                position += 1 if bit15 else -1
+                
+                if abs(position - last_position) >= 1:
+                    delta = position - last_position
+                    last_position = position
+                    
+                    if mode == "VOLUME":
+                        volume += delta * volume_step
+                        volume = set_volume(volume)
+                        print(f"🔊 Volume: {volume}%")
+                    elif mode == "TUNING":
+                        frequency += delta * freq_step
+                        frequency = tune_radio(frequency)
+                        print(f"📻 Frequency: {frequency:.1f} MHz")
+            
+            # BUTTON PRESSED
+            if xor & 0x000040FE:
+                if current & 0x000040FE:
+                    mode = "TUNING" if mode == "VOLUME" else "VOLUME"
+                    print(f"\n{'='*60}")
+                    print(f"🔄 MODE: {mode}")
+                    print(f"{'='*60}")
+                    if mode == "VOLUME":
+                        print(f"🔊 Volume: {volume}%")
+                    else:
+                        print(f"📻 Frequency: {frequency:.1f} MHz")
+                    print()
+            
+            last_value = current
+        
+        time.sleep(0.01)  # Poll every 10ms
 
 except KeyboardInterrupt:
     print("\n\n🛑 Encoder control stopped")
-    GPIO.cleanup()
+
