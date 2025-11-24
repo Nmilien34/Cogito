@@ -118,6 +118,128 @@ app.get('/api/ai/activity', (req, res) => {
   });
 });
 
+// ========== FM RADIO CONTROL ENDPOINTS ==========
+
+// Set specific frequency
+app.post('/api/radio/frequency', (req, res) => {
+  const { frequency } = req.body;
+
+  if (!frequency || frequency < 87.5 || frequency > 108.0) {
+    return res.status(400).json({ error: 'Invalid frequency. Must be between 87.5 and 108.0 MHz' });
+  }
+
+  console.log(`📻 Setting frequency to ${frequency} MHz`);
+
+  exec(`python3 python/radio-control.py set ${frequency}`, (error, stdout, stderr) => {
+    if (error) {
+      console.error('Radio frequency error:', error);
+      return res.status(500).json({ error: 'Failed to set frequency', details: stderr });
+    }
+
+    console.log(stdout);
+
+    // Notify WebSocket clients
+    io.emit('radio-state-update', { frequency });
+
+    res.json({ frequency, message: 'Frequency set successfully' });
+  });
+});
+
+// Tune up
+app.post('/api/radio/tune/up', (req, res) => {
+  console.log('📻 Tuning up');
+
+  exec('python3 python/radio-control.py up', (error, stdout, stderr) => {
+    if (error) {
+      console.error('Radio tune up error:', error);
+      return res.status(500).json({ error: 'Failed to tune up', details: stderr });
+    }
+
+    console.log(stdout);
+
+    // Parse frequency from output if available
+    const match = stdout.match(/(\d+\.\d+)\s*MHz/);
+    const frequency = match ? parseFloat(match[1]) : null;
+
+    if (frequency) {
+      io.emit('radio-state-update', { frequency });
+    }
+
+    res.json({ message: 'Tuned up', frequency });
+  });
+});
+
+// Tune down
+app.post('/api/radio/tune/down', (req, res) => {
+  console.log('📻 Tuning down');
+
+  exec('python3 python/radio-control.py down', (error, stdout, stderr) => {
+    if (error) {
+      console.error('Radio tune down error:', error);
+      return res.status(500).json({ error: 'Failed to tune down', details: stderr });
+    }
+
+    console.log(stdout);
+
+    // Parse frequency from output if available
+    const match = stdout.match(/(\d+\.\d+)\s*MHz/);
+    const frequency = match ? parseFloat(match[1]) : null;
+
+    if (frequency) {
+      io.emit('radio-state-update', { frequency });
+    }
+
+    res.json({ message: 'Tuned down', frequency });
+  });
+});
+
+// Set volume (placeholder - actual volume control depends on hardware)
+app.post('/api/radio/volume', (req, res) => {
+  const { volume } = req.body;
+
+  if (volume === undefined || volume < 0 || volume > 100) {
+    return res.status(400).json({ error: 'Invalid volume. Must be between 0 and 100' });
+  }
+
+  console.log(`📻 Setting volume to ${volume}%`);
+
+  // Note: TEA5767 doesn't have built-in volume control
+  // Volume is typically controlled via system audio or external amplifier
+  // This endpoint is for frontend state management
+
+  io.emit('radio-state-update', { volume });
+
+  res.json({ volume, message: 'Volume set (software state only)' });
+});
+
+// Get radio status
+app.get('/api/radio/status', (req, res) => {
+  console.log('📻 Getting radio status');
+
+  exec('python3 python/radio-control.py status', (error, stdout, stderr) => {
+    if (error) {
+      console.error('Radio status error:', error);
+      return res.status(500).json({ error: 'Failed to get status', details: stderr });
+    }
+
+    console.log(stdout);
+
+    // Parse status from output
+    const freqMatch = stdout.match(/Frequency:\s*(\d+\.\d+)\s*MHz/);
+    const signalMatch = stdout.match(/Signal Level:\s*(\d+)/);
+    const stereoMatch = stdout.match(/Stereo:\s*(Yes|No)/);
+
+    const status = {
+      frequency: freqMatch ? parseFloat(freqMatch[1]) : 99.1,
+      signalStrength: signalMatch ? parseInt(signalMatch[1]) : undefined,
+      isStereo: stereoMatch ? stereoMatch[1] === 'Yes' : undefined,
+      isPlaying: currentMode === 'radio',
+    };
+
+    res.json(status);
+  });
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', mode: currentMode });

@@ -27,6 +27,22 @@ export interface ReminderLog {
   ackTimeMs?: number;
 }
 
+// FM Radio Types
+export interface FMRadioState {
+  frequency: number;
+  isPlaying: boolean;
+  volume: number;
+  signalStrength?: number;
+  isStereo?: boolean;
+}
+
+export interface StationPreset {
+  id: string;
+  name: string;
+  frequency: number;
+}
+
+// Deprecated - kept for backwards compatibility during migration
 export interface PlaylistItem {
   id: string;
   title: string;

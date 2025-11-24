@@ -14,12 +14,12 @@
     "cy:run": "cypress run"
   },
   "dependencies": {
+    "@vapi-ai/web": "^2.5.1",
     "chrono-node": "^2.9.0",
     "date-fns": "^4.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6",
-    "react-youtube": "^10.1.0",
     "recharts": "^3.4.1",
     "socket.io-client": "^4.8.1"
   },

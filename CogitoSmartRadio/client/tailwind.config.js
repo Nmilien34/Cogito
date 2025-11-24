@@ -4,11 +4,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: "#1A4D2E",
-        accent: "#F2C14E",
+        primary: "#F5C644", // Yellowish gold for buttons
+        accent: "#F5C644", // Yellowish gold
         danger: "#D7263D",
+        background: "#FAFAF8", // Off-white background
         slate: {
-          950: "#0F172A",
+          950: "#FAFAF8", // Override dark backgrounds with off-white
         },
       },
     },

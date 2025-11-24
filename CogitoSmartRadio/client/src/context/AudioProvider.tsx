@@ -1,16 +1,21 @@
 import {
   createContext,
   useContext,
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
   type PropsWithChildren,
 } from "react";
-import { RADIO_STREAM_URL } from "../config";
+
+/**
+ * AudioProvider - Simplified for FM Radio
+ *
+ * This provider is maintained for backwards compatibility with voice AI ducking.
+ * The actual FM radio audio comes from the hardware (TEA5767 chip), not the browser.
+ *
+ * Note: Web audio streaming has been removed as this is now a physical FM radio controller.
+ */
 
 interface AudioContextValue {
-  audioEl: HTMLAudioElement | null;
+  // Deprecated: kept for backwards compatibility
+  audioEl: null;
   gain: number;
   playing: boolean;
   setVolume: (value: number) => void;
@@ -22,76 +27,31 @@ interface AudioContextValue {
 const AudioCtx = createContext<AudioContextValue | undefined>(undefined);
 
 export const AudioProvider = ({ children }: PropsWithChildren) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const previousGain = useRef(1);
-  const [playing, setPlaying] = useState(false);
-  const [gain, setGain] = useState(1);
+  // Simplified provider - no actual audio processing needed
+  // FM radio is controlled via hardware service
 
-  useEffect(() => {
-    const audio = new Audio(RADIO_STREAM_URL);
-    audio.crossOrigin = "anonymous";
-    audio.loop = true;
-    audioRef.current = audio;
-
-    const context = new window.AudioContext();
-    audioContextRef.current = context;
-    const source = context.createMediaElementSource(audio);
-    const gainNode = context.createGain();
-    gainNode.gain.value = gain;
-    gainNodeRef.current = gainNode;
-    source.connect(gainNode).connect(context.destination);
-
-    return () => {
-      audio.pause();
-      audioRef.current = null;
-      gainNode.disconnect();
-      context.close();
-    };
-  }, []);
-
-  const setVolume = useCallback((value: number) => {
-    setGain(value);
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.linearRampToValueAtTime(value, audioContextRef.current!.currentTime + 0.2);
-    }
-  }, []);
-
-  const togglePlayback = useCallback(() => {
-    if (!audioRef.current) return;
-    if (playing) {
-      audioRef.current.pause();
-      setPlaying(false);
-    } else {
-      audioRef.current.play();
-      setPlaying(true);
-    }
-  }, [playing]);
-
-  const duck = useCallback(() => {
-    if (!gainNodeRef.current || !audioContextRef.current) return;
-    previousGain.current = gainNodeRef.current.gain.value;
-    gainNodeRef.current.gain.linearRampToValueAtTime(0.2, audioContextRef.current.currentTime + 0.2);
-  }, []);
-
-  const restore = useCallback(() => {
-    if (!gainNodeRef.current || !audioContextRef.current) return;
-    gainNodeRef.current.gain.linearRampToValueAtTime(previousGain.current, audioContextRef.current.currentTime + 0.2);
-  }, []);
+  const contextValue: AudioContextValue = {
+    audioEl: null,
+    gain: 1,
+    playing: false,
+    setVolume: () => {
+      console.warn('AudioProvider.setVolume is deprecated. Use FMRadioService instead.');
+    },
+    togglePlayback: () => {
+      console.warn('AudioProvider.togglePlayback is deprecated. Use FMRadioService instead.');
+    },
+    duck: () => {
+      // Can be used by Vapi integration to signal ducking
+      console.log('Audio ducking requested (physical radio should be controlled via hardware service)');
+    },
+    restore: () => {
+      // Can be used by Vapi integration to restore volume
+      console.log('Audio restore requested (physical radio should be controlled via hardware service)');
+    },
+  };
 
   return (
-    <AudioCtx.Provider
-      value={{
-        audioEl: audioRef.current,
-        gain,
-        playing,
-        setVolume,
-        togglePlayback,
-        duck,
-        restore,
-      }}
-    >
+    <AudioCtx.Provider value={contextValue}>
       {children}
     </AudioCtx.Provider>
   );
