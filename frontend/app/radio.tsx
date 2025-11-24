@@ -29,6 +29,57 @@ export default function RadioScreen() {
   const [hardwareMode, setHardwareMode] = useState<'radio' | 'ai'>('radio');
   const socketRef = useRef<Socket | null>(null);
 
+  // Unlock AudioContext on mount (required for Chromium autoplay policy)
+  useEffect(() => {
+    let audioContext: AudioContext | null = null;
+    let unlocked = false;
+
+    const unlockAudio = async () => {
+      if (unlocked) return;
+
+      try {
+        console.log('🔓 Unlocking AudioContext...');
+
+        // Create a dummy AudioContext and resume it
+        // This satisfies browser autoplay requirements
+        audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+          console.log('✅ AudioContext resumed:', audioContext.state);
+        } else {
+          console.log('✅ AudioContext already running:', audioContext.state);
+        }
+
+        unlocked = true;
+
+        // Keep the context alive (don't close it)
+        // This unlocks audio for the entire page, including Vapi
+      } catch (error) {
+        console.error('❌ Failed to unlock AudioContext:', error);
+      }
+    };
+
+    // Try to unlock immediately (works with --autoplay-policy flag)
+    unlockAudio();
+
+    // Fallback: Also unlock on first user interaction (click/touch)
+    const handleInteraction = () => {
+      unlockAudio();
+      // Remove listeners after first interaction
+      document.removeEventListener('click', handleInteraction);
+      document.removeEventListener('touchstart', handleInteraction);
+    };
+
+    document.addEventListener('click', handleInteraction);
+    document.addEventListener('touchstart', handleInteraction);
+
+    return () => {
+      document.removeEventListener('click', handleInteraction);
+      document.removeEventListener('touchstart', handleInteraction);
+    };
+  }, []);
+
   // Initialize device authentication on mount
   useEffect(() => {
     const initializeDevice = async () => {
@@ -120,8 +171,8 @@ export default function RadioScreen() {
     socket.on('start-voice', async (data) => {
       console.log('🎤 Hardware button pressed - Starting Vapi conversation', data);
       console.log('📊 VapiService state:', {
-        isActive: vapiService?.isActive,
-        status: vapiService?.status,
+        isActive: vapiService?.isConversationActive(),
+        status: vapiService?.getStatus(),
         assistantId: VAPI_ASSISTANT_ID
       });
       setHardwareMode('ai');
@@ -167,7 +218,6 @@ export default function RadioScreen() {
     socket.on('connect_error', (error) => {
       console.error('❌ Hardware service connection error:', error.message);
       console.error('❌ Connection URL:', HARDWARE_SERVICE_URL);
-      console.error('❌ Error type:', error.type);
       console.error('❌ Full error:', error);
     });
 
