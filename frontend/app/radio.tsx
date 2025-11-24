@@ -112,18 +112,35 @@ export default function RadioScreen() {
     // Connection established
     socket.on('connect', () => {
       console.log('✅ Connected to hardware service');
+      console.log('📡 Socket ID:', socket.id);
+      console.log('🌐 Hardware service URL:', HARDWARE_SERVICE_URL);
     });
 
     // Listen for button press → START voice AI
     socket.on('start-voice', async (data) => {
       console.log('🎤 Hardware button pressed - Starting Vapi conversation', data);
+      console.log('📊 VapiService state:', {
+        isActive: vapiService?.isActive,
+        status: vapiService?.status,
+        assistantId: VAPI_ASSISTANT_ID
+      });
       setHardwareMode('ai');
 
+      if (!vapiService) {
+        console.error('❌ VapiService not initialized!');
+        return;
+      }
+
       try {
+        console.log('🚀 Calling vapiService.startConversation()...');
         await vapiService.startConversation();
         console.log('✅ Vapi conversation started via button');
       } catch (error) {
         console.error('❌ Failed to start Vapi via button:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
       }
     });
 
@@ -149,6 +166,9 @@ export default function RadioScreen() {
     // Connection errors
     socket.on('connect_error', (error) => {
       console.error('❌ Hardware service connection error:', error.message);
+      console.error('❌ Connection URL:', HARDWARE_SERVICE_URL);
+      console.error('❌ Error type:', error.type);
+      console.error('❌ Full error:', error);
     });
 
     socket.on('disconnect', (reason) => {

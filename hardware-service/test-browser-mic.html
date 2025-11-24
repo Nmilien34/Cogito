@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Microphone Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #audioLevel {
+            width: 100%;
+            height: 30px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        #audioLevelBar {
+            height: 100%;
+            background: linear-gradient(to right, green, yellow, red);
+            width: 0%;
+            transition: width 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Browser Microphone Test</h1>
+    
+    <div id="status" class="status info">Click "Start Test" to begin</div>
+    
+    <button onclick="testMicrophone()">Start Test</button>
+    <button onclick="stopTest()">Stop Test</button>
+    
+    <h3>Audio Level:</h3>
+    <div id="audioLevel">
+        <div id="audioLevelBar"></div>
+    </div>
+    
+    <h3>Log:</h3>
+    <div id="log" style="background: #f5f5f5; padding: 10px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+
+    <script>
+        let stream = null;
+        let audioContext = null;
+        let analyser = null;
+        let animationFrame = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        async function testMicrophone() {
+            try {
+                log('🔍 Requesting microphone access...');
+                updateStatus('Requesting microphone access...', 'info');
+
+                // Request microphone
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+
+                log('✅ Microphone access granted!', 'success');
+                updateStatus('✅ Microphone is working!', 'success');
+
+                // Get audio track info
+                const audioTracks = stream.getAudioTracks();
+                log(`📊 Found ${audioTracks.length} audio track(s):`);
+                audioTracks.forEach((track, index) => {
+                    log(`  Track ${index + 1}: ${track.label || 'Unknown'}`, 'info');
+                    log(`    - Enabled: ${track.enabled}`, 'info');
+                    log(`    - Muted: ${track.muted}`, 'info');
+                    log(`    - ReadyState: ${track.readyState}`, 'info');
+                    log(`    - Settings: ${JSON.stringify(track.getSettings(), null, 2)}`, 'info');
+                });
+
+                // Set up audio level monitoring
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 256;
+
+                // Monitor audio levels
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                function updateAudioLevel() {
+                    analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                    const percentage = (average / 255) * 100;
+                    
+                    document.getElementById('audioLevelBar').style.width = percentage + '%';
+                    
+                    if (percentage > 10) {
+                        log(`🔊 Audio detected! Level: ${percentage.toFixed(1)}%`, 'success');
+                    }
+                    
+                    if (stream && stream.active) {
+                        animationFrame = requestAnimationFrame(updateAudioLevel);
+                    }
+                }
+                updateAudioLevel();
+
+                log('🎤 Speak into the microphone - you should see audio levels above!', 'info');
+
+            } catch (error) {
+                log(`❌ Error: ${error.name}: ${error.message}`, 'error');
+                updateStatus(`❌ Error: ${error.message}`, 'error');
+                
+                if (error.name === 'NotAllowedError') {
+                    log('💡 Tip: Grant microphone permission in browser settings', 'info');
+                } else if (error.name === 'NotFoundError') {
+                    log('💡 Tip: No microphone found. Check if mic is connected', 'info');
+                } else if (error.name === 'NotReadableError') {
+                    log('💡 Tip: Microphone is being used by another application', 'info');
+                }
+            }
+        }
+
+        function stopTest() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                log('🛑 Stopped microphone access', 'info');
+                updateStatus('Test stopped', 'info');
+            }
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            document.getElementById('audioLevelBar').style.width = '0%';
+        }
+
+        // Test on page load
+        window.addEventListener('load', () => {
+            log('📄 Page loaded. Click "Start Test" to begin.', 'info');
+            
+            // Check if getUserMedia is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                log('❌ getUserMedia not supported in this browser', 'error');
+                updateStatus('❌ Browser does not support microphone access', 'error');
+            } else {
+                log('✅ Browser supports getUserMedia', 'success');
+            }
+        });
+    </script>
+</body>
+</html>
+
+

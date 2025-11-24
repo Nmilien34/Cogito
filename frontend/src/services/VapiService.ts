@@ -107,9 +107,29 @@ export class VapiService {
   }
 
   /**
-   * Start a voice conversation
+   * Get available audio input devices
    */
-  public async startConversation(): Promise<void> {
+  public async getAudioDevices(): Promise<MediaDeviceInfo[]> {
+    try {
+      // Request permission first (required for device enumeration)
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      
+      console.log('🎤 Available audio input devices:', audioInputs);
+      return audioInputs;
+    } catch (error) {
+      console.error('❌ Failed to enumerate devices:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Start a voice conversation
+   * @param deviceId Optional: Specific audio device ID to use
+   */
+  public async startConversation(deviceId?: string): Promise<void> {
     if (this.isActive) {
       console.warn('⚠️  Conversation already active');
       return;
@@ -118,6 +138,24 @@ export class VapiService {
     try {
       this.updateStatus('connecting');
       console.log('🚀 Starting Vapi conversation...');
+      
+      // If deviceId is provided, request that specific device first
+      // This ensures the browser uses the correct microphone
+      if (deviceId) {
+        console.log('🎤 Requesting specific device:', deviceId);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              deviceId: { exact: deviceId }
+            }
+          });
+          // Stop the stream - Vapi will request its own
+          stream.getTracks().forEach(track => track.stop());
+          console.log('✅ Device selected successfully');
+        } catch (error) {
+          console.warn('⚠️  Could not use specified device, falling back to default:', error);
+        }
+      }
 
       await this.vapi.start(this.assistantId);
 

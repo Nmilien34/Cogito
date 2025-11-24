@@ -41,11 +41,19 @@ app.post('/api/mode/set', (req, res) => {
     });
 
     // Notify WebSocket clients about mode change
+    const clientCount = io.sockets.sockets.size;
+    console.log(`📡 Emitting to ${clientCount} connected client(s)`);
+    
     io.emit('mode-changed', { mode: 'ai', timestamp: lastSpeechTime });
+    console.log('📤 Emitted: mode-changed (ai)');
 
     // Tell frontend to START Vapi conversation
     io.emit('start-voice', { timestamp: lastSpeechTime });
-    console.log('📡 Emitted: start-voice to frontend');
+    console.log('📤 Emitted: start-voice to frontend');
+    
+    if (clientCount === 0) {
+      console.warn('⚠️  WARNING: No clients connected! Frontend may not be running.');
+    }
 
     res.json({ mode: 'ai', message: 'AI mode activated' });
 
@@ -55,8 +63,11 @@ app.post('/api/mode/set', (req, res) => {
     console.log('📻 RADIO MODE - Resuming playback');
 
     // Tell frontend to STOP Vapi conversation
+    const clientCount = io.sockets.sockets.size;
+    console.log(`📡 Emitting to ${clientCount} connected client(s)`);
+    
     io.emit('stop-voice', { timestamp: Date.now() });
-    console.log('📡 Emitted: stop-voice to frontend');
+    console.log('📤 Emitted: stop-voice to frontend');
 
     // Resume radio
     exec('python3 python/radio-control.py resume', (error) => {
@@ -114,13 +125,21 @@ app.get('/health', (req, res) => {
 
 // WebSocket connection
 io.on('connection', (socket) => {
-  console.log('Client connected');
+  console.log('✅ Client connected:', socket.id);
+  console.log('📡 Total clients:', io.sockets.sockets.size);
   
   // Send current mode to new client
   socket.emit('mode-changed', { mode: currentMode });
+  console.log('📤 Sent initial mode to client:', currentMode);
   
   socket.on('disconnect', () => {
-    console.log('Client disconnected');
+    console.log('❌ Client disconnected:', socket.id);
+    console.log('📡 Remaining clients:', io.sockets.sockets.size);
+  });
+  
+  // Log any events received from client
+  socket.onAny((event, ...args) => {
+    console.log('📨 Received from client:', event, args);
   });
 });
 
