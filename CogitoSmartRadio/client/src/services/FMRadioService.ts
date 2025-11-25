@@ -28,9 +28,23 @@ class FMRadioService {
     volume: 50,
   };
   private listeners: Set<(state: FMRadioState) => void> = new Set();
+  private statusPollInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.connect();
+    this.initializeRadioState();
+  }
+
+  /**
+   * Fetch the current radio state from hardware on initialization
+   */
+  private async initializeRadioState() {
+    try {
+      await this.getStatus();
+      console.log('✅ Initial radio state loaded:', this.radioState);
+    } catch (error) {
+      console.warn('⚠️  Could not fetch initial radio state, using defaults:', error);
+    }
   }
 
   connect() {
@@ -45,11 +59,17 @@ class FMRadioService {
 
     this.socket.on('connect', () => {
       console.log('Connected to FM Radio hardware service');
+      // Fetch current radio state when connected
+      this.getStatus().catch(err =>
+        console.warn('Could not fetch radio status on connect:', err)
+      );
+      this.startStatusPolling();
       this.emitStateUpdate();
     });
 
     this.socket.on('disconnect', () => {
       console.log('Disconnected from FM Radio hardware service');
+      this.stopStatusPolling();
     });
 
     this.socket.on('radio-state-update', (state: Partial<FMRadioState>) => {
@@ -67,7 +87,35 @@ class FMRadioService {
     });
   }
 
+  /**
+   * Start periodic polling of radio status (every 5 seconds)
+   * This keeps the frontend in sync with hardware changes
+   */
+  private startStatusPolling() {
+    if (this.statusPollInterval) return;
+
+    this.statusPollInterval = setInterval(async () => {
+      try {
+        await this.getStatus();
+      } catch (error) {
+        // Silently fail - hardware might be temporarily unavailable
+        console.debug('Status poll failed:', error);
+      }
+    }, 5000); // Poll every 5 seconds
+  }
+
+  /**
+   * Stop status polling
+   */
+  private stopStatusPolling() {
+    if (this.statusPollInterval) {
+      clearInterval(this.statusPollInterval);
+      this.statusPollInterval = null;
+    }
+  }
+
   disconnect() {
+    this.stopStatusPolling();
     this.socket?.disconnect();
     this.socket = null;
   }

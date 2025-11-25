@@ -155,17 +155,20 @@ app.post('/api/radio/tune/up', (req, res) => {
       return res.status(500).json({ error: 'Failed to tune up', details: stderr });
     }
 
-    console.log(stdout);
+    console.log('Tune up output:', stdout);
 
-    // Parse frequency from output if available
+    // Parse frequency from output - look for pattern like "99.5 MHz"
     const match = stdout.match(/(\d+\.\d+)\s*MHz/);
     const frequency = match ? parseFloat(match[1]) : null;
 
     if (frequency) {
+      console.log(`✅ Tuned up to ${frequency} MHz`);
       io.emit('radio-state-update', { frequency });
+      res.json({ message: 'Tuned up', frequency });
+    } else {
+      console.warn('⚠️  Could not parse frequency from output');
+      res.json({ message: 'Tuned up', frequency: null });
     }
-
-    res.json({ message: 'Tuned up', frequency });
   });
 });
 
@@ -179,17 +182,20 @@ app.post('/api/radio/tune/down', (req, res) => {
       return res.status(500).json({ error: 'Failed to tune down', details: stderr });
     }
 
-    console.log(stdout);
+    console.log('Tune down output:', stdout);
 
-    // Parse frequency from output if available
+    // Parse frequency from output - look for pattern like "99.5 MHz"
     const match = stdout.match(/(\d+\.\d+)\s*MHz/);
     const frequency = match ? parseFloat(match[1]) : null;
 
     if (frequency) {
+      console.log(`✅ Tuned down to ${frequency} MHz`);
       io.emit('radio-state-update', { frequency });
+      res.json({ message: 'Tuned down', frequency });
+    } else {
+      console.warn('⚠️  Could not parse frequency from output');
+      res.json({ message: 'Tuned down', frequency: null });
     }
-
-    res.json({ message: 'Tuned down', frequency });
   });
 });
 
@@ -219,23 +225,38 @@ app.get('/api/radio/status', (req, res) => {
   exec('python3 python/radio-control.py status', (error, stdout, stderr) => {
     if (error) {
       console.error('Radio status error:', error);
-      return res.status(500).json({ error: 'Failed to get status', details: stderr });
+      // Return default state if hardware is unavailable
+      const fallbackStatus = {
+        frequency: 99.1,
+        signalStrength: 0,
+        isStereo: false,
+        isPlaying: currentMode === 'radio',
+        volume: 50,
+        error: 'Could not read hardware status'
+      };
+      return res.json(fallbackStatus);
     }
 
-    console.log(stdout);
+    console.log('Radio status output:', stdout);
 
     // Parse status from output
     const freqMatch = stdout.match(/Frequency:\s*(\d+\.\d+)\s*MHz/);
     const signalMatch = stdout.match(/Signal Level:\s*(\d+)/);
     const stereoMatch = stdout.match(/Stereo:\s*(Yes|No)/);
 
+    const frequency = freqMatch ? parseFloat(freqMatch[1]) : 99.1;
+    const signalStrength = signalMatch ? parseInt(signalMatch[1]) : 0;
+    const isStereo = stereoMatch ? stereoMatch[1] === 'Yes' : false;
+
     const status = {
-      frequency: freqMatch ? parseFloat(freqMatch[1]) : 99.1,
-      signalStrength: signalMatch ? parseInt(signalMatch[1]) : undefined,
-      isStereo: stereoMatch ? stereoMatch[1] === 'Yes' : undefined,
+      frequency,
+      signalStrength,
+      isStereo,
       isPlaying: currentMode === 'radio',
+      volume: 50, // Software volume state
     };
 
+    console.log('📊 Parsed status:', status);
     res.json(status);
   });
 });
