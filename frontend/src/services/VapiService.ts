@@ -45,7 +45,22 @@ export class VapiService {
     console.log('🔧 Initializing Vapi SDK with publicKey:', config.publicKey ? '✅ Set' : '❌ Missing');
     console.log('🔧 Assistant ID:', config.assistantId || '❌ Missing');
     
-    this.vapi = new Vapi(config.publicKey);
+    if (!config.publicKey) {
+      console.error('❌ Vapi publicKey is missing!');
+    }
+    if (!config.assistantId) {
+      console.error('❌ Vapi assistantId is missing!');
+    }
+    
+    try {
+      this.vapi = new Vapi(config.publicKey);
+      console.log('✅ Vapi SDK instance created');
+      console.log('🔍 Vapi SDK version:', (this.vapi as any).version || 'unknown');
+    } catch (error) {
+      console.error('❌ Failed to create Vapi SDK instance:', error);
+      throw error;
+    }
+    
     this.assistantId = config.assistantId;
     this.onMessageCallback = config.onMessage;
     this.onStatusChangeCallback = config.onStatusChange;
@@ -318,6 +333,29 @@ export class VapiService {
 
       console.log('📞 Calling vapi.start() with assistantId:', this.assistantId);
       
+      // Set up event listeners BEFORE calling start() to catch the event immediately
+      let callStartResolve: (() => void) | null = null;
+      let callStartReject: ((error: Error) => void) | null = null;
+      
+      const onCallStart = () => {
+        console.log('✅ call-start event received!');
+        if (callStartResolve) {
+          callStartResolve();
+        }
+      };
+
+      const onError = (error: any) => {
+        console.error('❌ Vapi error while waiting for call-start:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
+        if (callStartReject) {
+          callStartReject(new Error(error.message || error.toString() || 'Vapi error occurred'));
+        }
+      };
+
+      // Set up listeners BEFORE starting
+      this.vapi.on('call-start', onCallStart);
+      this.vapi.on('error', onError);
+      
       // Call vapi.start() - it resolves quickly but the actual connection happens via events
       let startResult;
       try {
@@ -334,6 +372,11 @@ export class VapiService {
           console.error('❌ Both start() approaches failed');
           console.error('Error 1 (string):', err1);
           console.error('Error 2 (object):', err2);
+          
+          // Clean up listeners
+          this.vapi.off('call-start', onCallStart);
+          this.vapi.off('error', onError);
+          
           this.updateStatus('error');
           this.handleError(err2 as Error);
           throw err2;
@@ -341,52 +384,43 @@ export class VapiService {
       }
 
       console.log('✅ vapi.start() completed - waiting for call-start event...');
+      console.log('🔍 Check browser Network tab (filter by "WS") for WebSocket connections to Vapi servers');
       
       // Wait for call-start event (the actual connection)
       // vapi.start() resolves quickly, but the call connects asynchronously
       return new Promise<void>((resolve, reject) => {
+        callStartResolve = resolve;
+        callStartReject = reject;
+        
         const timeout = setTimeout(() => {
           console.error('❌ call-start event never fired after 15 seconds');
           console.error('📊 Current status:', this.currentStatus);
           console.error('📊 isActive:', this.isActive);
-          console.error('💡 Possible issues:');
-          console.error('   1. Check browser Network tab for WebSocket connections to Vapi');
-          console.error('   2. Check if assistantId is correct:', this.assistantId);
-          console.error('   3. Check if publicKey is valid');
-          console.error('   4. Check browser console for Vapi SDK errors');
-          console.error('   5. Verify assistant is configured correctly in Vapi dashboard');
+          console.error('💡 Debugging steps:');
+          console.error('   1. Open browser DevTools → Network tab');
+          console.error('   2. Filter by "WS" (WebSocket)');
+          console.error('   3. Press the button again and look for WebSocket connection attempts');
+          console.error('   4. Check if any WebSocket connections are being blocked or failing');
+          console.error('   5. Verify assistantId in Vapi dashboard:', this.assistantId);
+          console.error('   6. Verify publicKey is valid and not expired');
+          console.error('   7. Check if assistant is active in Vapi dashboard');
           
-          // Clean up listener
+          // Clean up listeners
           this.vapi.off('call-start', onCallStart);
           this.vapi.off('error', onError);
+          
+          callStartResolve = null;
+          callStartReject = null;
           
           this.updateStatus('error');
-          reject(new Error('Call did not connect - call-start event never fired. Check Network tab for WebSocket connections.'));
+          reject(new Error('Call did not connect - call-start event never fired. Check Network tab for WebSocket connections to Vapi servers.'));
         }, 15000);
 
-        const onCallStart = () => {
-          console.log('✅ call-start event received!');
+        // If already active, resolve immediately
+        if (this.isActive) {
           clearTimeout(timeout);
           this.vapi.off('call-start', onCallStart);
           this.vapi.off('error', onError);
-          resolve();
-        };
-
-        const onError = (error: any) => {
-          console.error('❌ Vapi error while waiting for call-start:', error);
-          clearTimeout(timeout);
-          this.vapi.off('call-start', onCallStart);
-          this.vapi.off('error', onError);
-          reject(new Error(error.message || 'Vapi error occurred'));
-        };
-
-        // Listen for call-start (if not already connected)
-        if (!this.isActive) {
-          this.vapi.on('call-start', onCallStart);
-          this.vapi.on('error', onError);
-        } else {
-          // Already active, resolve immediately
-          clearTimeout(timeout);
           resolve();
         }
       });
