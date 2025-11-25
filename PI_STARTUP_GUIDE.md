@@ -1,3 +1,4 @@
+
 # 🍓 Raspberry Pi Complete Startup Guide
 
 ## ⚠️ CRITICAL: You Need 3 Processes Running!
@@ -152,7 +153,11 @@ chromium-browser --kiosk \
   --autoplay-policy=no-user-gesture-required \
   --use-fake-ui-for-media-stream \
   --disable-features=AudioServiceOutOfProcess \
-  http://localhost:8081
+  --enable-features=WebRTC \
+  --unsafely-treat-insecure-origin-as-secure=http://localhost:5173 \
+  --unsafely-treat-insecure-origin-as-secure=http://localhost:3001 \
+  --unsafely-treat-insecure-origin-as-secure=http://localhost:4000 \
+  http://localhost:5173
 ```
 
 **Chromium flags explained:**
