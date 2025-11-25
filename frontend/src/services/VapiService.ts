@@ -97,6 +97,7 @@ export class VapiService {
     // Call started
     this.vapi.on('call-start', (data?: any) => {
       console.log('📞 Vapi call started!', data || '');
+      console.log('📞 Call data:', JSON.stringify(data, null, 2));
       this.isActive = true;
       this.updateStatus('connected');
       // Resume AudioContext if suspended (required for audio playback)
@@ -317,79 +318,78 @@ export class VapiService {
 
       console.log('📞 Calling vapi.start() with assistantId:', this.assistantId);
       
-      // Add timeout to detect if vapi.start() hangs
-      const startPromise = (async () => {
-        try {
-          // Vapi SDK start() can take either:
-          // 1. Just assistantId (string)
-          // 2. Options object with assistantId property
-          // Try both approaches
-          let startResult;
-          
-          // First, try with just assistantId (current approach)
-          try {
-            startResult = await this.vapi.start(this.assistantId);
-            console.log('📞 vapi.start(assistantId) succeeded:', startResult);
-            return startResult;
-          } catch (err1) {
-            console.log('⚠️  vapi.start(assistantId) failed, trying with options object:', err1);
-            // Try with options object
-            try {
-              startResult = await this.vapi.start({
-                assistantId: this.assistantId,
-              });
-              console.log('📞 vapi.start({assistantId}) succeeded:', startResult);
-              return startResult;
-            } catch (err2) {
-              console.error('❌ Both start() approaches failed');
-              console.error('Error 1 (string):', err1);
-              console.error('Error 2 (object):', err2);
-              throw err2;
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error in startPromise:', error);
-          throw error;
-        }
-      })();
-
-      // Add timeout wrapper
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('vapi.start() timed out after 10 seconds. The call may not be connecting.'));
-        }, 10000);
-      });
-
+      // Call vapi.start() - it resolves quickly but the actual connection happens via events
+      let startResult;
       try {
-        const startResult = await Promise.race([startPromise, timeoutPromise]);
-        console.log('✅ Vapi conversation started - waiting for call-start event...');
-        
-        // Wait a bit and check if call started
-        setTimeout(() => {
-          if (!this.isActive) {
-            console.warn('⚠️  Call did not start after 3 seconds. Possible issues:');
-            console.log('📊 Current status:', this.currentStatus);
-            console.log('📊 isActive:', this.isActive);
-            console.log('📊 Assistant ID:', this.assistantId);
-            console.log('📊 Public Key:', this.vapi ? 'Set' : 'Missing');
-            console.warn('💡 Check:');
-            console.warn('   1. Is the assistantId correct in Vapi dashboard?');
-            console.warn('   2. Is the publicKey valid?');
-            console.warn('   3. Are there any network errors?');
-            console.warn('   4. Check browser console for Vapi SDK errors');
-            console.warn('   5. Check browser Network tab for failed requests to Vapi servers');
-          } else {
-            console.log('✅ Call is active!');
-          }
-        }, 3000);
-      } catch (startError) {
-        console.error('❌ Error calling vapi.start():', startError);
-        console.error('❌ Error message:', (startError as Error).message);
-        console.error('❌ Error stack:', (startError as Error).stack);
-        this.updateStatus('error');
-        this.handleError(startError as Error);
-        throw startError;
+        startResult = await this.vapi.start(this.assistantId);
+        console.log('📞 vapi.start() resolved:', startResult);
+      } catch (err1) {
+        console.log('⚠️  vapi.start(assistantId) failed, trying with options object:', err1);
+        try {
+          startResult = await this.vapi.start({
+            assistantId: this.assistantId,
+          });
+          console.log('📞 vapi.start({assistantId}) succeeded:', startResult);
+        } catch (err2) {
+          console.error('❌ Both start() approaches failed');
+          console.error('Error 1 (string):', err1);
+          console.error('Error 2 (object):', err2);
+          this.updateStatus('error');
+          this.handleError(err2 as Error);
+          throw err2;
+        }
       }
+
+      console.log('✅ vapi.start() completed - waiting for call-start event...');
+      
+      // Wait for call-start event (the actual connection)
+      // vapi.start() resolves quickly, but the call connects asynchronously
+      return new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.error('❌ call-start event never fired after 15 seconds');
+          console.error('📊 Current status:', this.currentStatus);
+          console.error('📊 isActive:', this.isActive);
+          console.error('💡 Possible issues:');
+          console.error('   1. Check browser Network tab for WebSocket connections to Vapi');
+          console.error('   2. Check if assistantId is correct:', this.assistantId);
+          console.error('   3. Check if publicKey is valid');
+          console.error('   4. Check browser console for Vapi SDK errors');
+          console.error('   5. Verify assistant is configured correctly in Vapi dashboard');
+          
+          // Clean up listener
+          this.vapi.off('call-start', onCallStart);
+          this.vapi.off('error', onError);
+          
+          this.updateStatus('error');
+          reject(new Error('Call did not connect - call-start event never fired. Check Network tab for WebSocket connections.'));
+        }, 15000);
+
+        const onCallStart = () => {
+          console.log('✅ call-start event received!');
+          clearTimeout(timeout);
+          this.vapi.off('call-start', onCallStart);
+          this.vapi.off('error', onError);
+          resolve();
+        };
+
+        const onError = (error: any) => {
+          console.error('❌ Vapi error while waiting for call-start:', error);
+          clearTimeout(timeout);
+          this.vapi.off('call-start', onCallStart);
+          this.vapi.off('error', onError);
+          reject(new Error(error.message || 'Vapi error occurred'));
+        };
+
+        // Listen for call-start (if not already connected)
+        if (!this.isActive) {
+          this.vapi.on('call-start', onCallStart);
+          this.vapi.on('error', onError);
+        } else {
+          // Already active, resolve immediately
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
       
       // Resume AudioContext again after starting (in case it was suspended)
       setTimeout(() => {
