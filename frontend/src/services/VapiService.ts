@@ -32,6 +32,7 @@ export class VapiService {
   private isActive: boolean = false;
   private currentStatus: ConversationStatus = 'idle';
   private messageHistory: VapiMessage[] = [];
+  private audioContextResumed: boolean = false;
 
   // Event callbacks
   private onMessageCallback?: (message: VapiMessage) => void;
@@ -50,6 +51,7 @@ export class VapiService {
     this.onSpeechEndCallback = config.onSpeechEnd;
 
     this.setupEventListeners();
+    this.setupAudioContextResume();
   }
 
   /**
@@ -61,6 +63,8 @@ export class VapiService {
       console.log('📞 Vapi call started');
       this.isActive = true;
       this.updateStatus('connected');
+      // Resume AudioContext if suspended (required for audio playback)
+      this.resumeAudioContext();
     });
 
     // Call ended
@@ -86,6 +90,41 @@ export class VapiService {
       }
     });
 
+    // Try multiple possible event names for assistant speech
+    // Different versions of Vapi SDK may use different event names
+    
+    // Assistant speech started (AI is speaking) - try multiple event names
+    const assistantSpeechStartEvents = ['assistant-speech-start', 'assistant-speech-update', 'tts-start'];
+    assistantSpeechStartEvents.forEach(eventName => {
+      this.vapi.on(eventName, () => {
+        console.log(`🤖 Assistant started speaking (${eventName})`);
+        // Resume AudioContext to ensure audio plays
+        this.resumeAudioContext();
+      });
+    });
+
+    // Assistant speech ended (AI stopped speaking)
+    const assistantSpeechEndEvents = ['assistant-speech-end', 'tts-end'];
+    assistantSpeechEndEvents.forEach(eventName => {
+      this.vapi.on(eventName, () => {
+        console.log(`🤖 Assistant stopped speaking (${eventName})`);
+      });
+    });
+
+    // Assistant message (AI response)
+    const assistantMessageEvents = ['assistant-message', 'assistant-response'];
+    assistantMessageEvents.forEach(eventName => {
+      this.vapi.on(eventName, (message: any) => {
+        console.log(`🤖 Assistant message (${eventName}):`, message);
+        this.handleMessage({
+          type: 'transcript',
+          transcript: message.content || message.message || '',
+          role: 'assistant',
+          ...message
+        });
+      });
+    });
+
     // Message received (transcript, AI response, etc.)
     this.vapi.on('message', (message: any) => {
       console.log('💬 Vapi message:', message);
@@ -104,6 +143,73 @@ export class VapiService {
       this.handleError(new Error(error.message || 'Vapi error occurred'));
       this.updateStatus('error');
     });
+  }
+
+  /**
+   * Set up global click handler to resume AudioContext on user interaction
+   * This is required for browser autoplay policy
+   */
+  private setupAudioContextResume(): void {
+    if (typeof window === 'undefined') return;
+
+    const handleUserInteraction = async () => {
+      if (this.audioContextResumed) return;
+      
+      try {
+        // Create and resume a temporary AudioContext to unlock audio
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const tempContext = new AudioContextClass();
+          if (tempContext.state === 'suspended') {
+            await tempContext.resume();
+            console.log('✅ AudioContext unlocked via user interaction');
+          }
+          this.audioContextResumed = true;
+          // Keep context alive briefly
+          setTimeout(() => {
+            tempContext.close().catch(() => {});
+          }, 500);
+        }
+      } catch (error) {
+        console.warn('⚠️  Could not unlock AudioContext:', error);
+      }
+    };
+
+    // Listen for any user interaction (click, touch, keypress)
+    window.addEventListener('click', handleUserInteraction, { once: true });
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
+    window.addEventListener('keydown', handleUserInteraction, { once: true });
+  }
+
+  /**
+   * Resume AudioContext if suspended (required for browser autoplay policy)
+   * This helps ensure audio can play after user interaction
+   */
+  private async resumeAudioContext(): Promise<void> {
+    try {
+      // Vapi SDK manages its own AudioContext internally
+      // We can't directly access it, but we can ensure the browser allows audio
+      // by creating a temporary context and resuming it
+      // This helps "unlock" audio for the page
+      if (typeof window !== 'undefined' && window.AudioContext) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const tempContext = new AudioContextClass();
+        
+        if (tempContext.state === 'suspended') {
+          await tempContext.resume();
+          console.log('✅ AudioContext resumed (temporary context)');
+          this.audioContextResumed = true;
+        }
+        
+        // Keep the context alive briefly to help unlock audio
+        // Vapi will use its own context, but this helps with browser autoplay policy
+        setTimeout(() => {
+          tempContext.close().catch(() => {});
+        }, 1000);
+      }
+    } catch (error) {
+      console.warn('⚠️  Could not resume AudioContext:', error);
+    }
   }
 
   /**
@@ -139,6 +245,9 @@ export class VapiService {
       this.updateStatus('connecting');
       console.log('🚀 Starting Vapi conversation...');
       
+      // Resume AudioContext before starting (required for browser autoplay policy)
+      await this.resumeAudioContext();
+      
       // If deviceId is provided, request that specific device first
       // This ensures the browser uses the correct microphone
       if (deviceId) {
@@ -157,9 +266,23 @@ export class VapiService {
         }
       }
 
+      // Request microphone permission and resume AudioContext
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        console.log('✅ Microphone permission granted');
+      } catch (error) {
+        console.warn('⚠️  Microphone permission issue:', error);
+      }
+
       await this.vapi.start(this.assistantId);
 
       console.log('✅ Vapi conversation started');
+      
+      // Resume AudioContext again after starting (in case it was suspended)
+      setTimeout(() => {
+        this.resumeAudioContext();
+      }, 100);
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
       this.updateStatus('error');
@@ -216,19 +339,37 @@ export class VapiService {
   private handleMessage(message: any) {
     let vapiMessage: VapiMessage | null = null;
 
+    // Log the full message for debugging
+    console.log('📨 Handling Vapi message:', JSON.stringify(message, null, 2));
+
+    // Check if this is an assistant message (AI speaking)
+    const isAssistantMessage = message.role === 'assistant' || 
+                                message.role === 'system' ||
+                                (message.type && message.type.includes('assistant'));
+
+    if (isAssistantMessage) {
+      console.log('🤖 Detected assistant message - AI should be speaking now');
+      // Resume AudioContext when assistant starts speaking
+      this.resumeAudioContext();
+    }
+
     // Handle different message types from Vapi
     switch (message.type) {
       case 'transcript':
-        // User's speech transcription
+        // Speech transcription (could be user or assistant)
         vapiMessage = {
           type: 'transcript',
-          content: message.transcript || message.transcriptPartial || '',
+          content: message.transcript || message.transcriptPartial || message.content || '',
           timestamp: new Date(),
           metadata: {
-            role: message.role || 'user',
-            isFinal: message.transcript ? true : false
+            role: message.role || (isAssistantMessage ? 'assistant' : 'user'),
+            isFinal: message.transcript ? true : false,
+            ...message
           }
         };
+        if (isAssistantMessage) {
+          console.log('🤖 Assistant transcript:', vapiMessage.content);
+        }
         break;
 
       case 'function-call':
@@ -256,25 +397,45 @@ export class VapiService {
         // AI speech update
         vapiMessage = {
           type: 'speech-update',
-          content: message.status || '',
+          content: message.status || message.content || '',
           timestamp: new Date(),
           metadata: message
         };
+        if (isAssistantMessage) {
+          console.log('🤖 Assistant speech update:', vapiMessage.content);
+        }
         break;
 
       case 'status-update':
         // Status update
         vapiMessage = {
           type: 'status-update',
-          content: message.status || '',
+          content: message.status || message.content || '',
           timestamp: new Date(),
           metadata: message
         };
         break;
 
       default:
-        console.log('❓ Unknown message type:', message.type, message);
-        return;
+        // Handle messages without a type or with unknown types
+        // Check if it has content that suggests it's a message
+        if (message.content || message.message || message.text) {
+          vapiMessage = {
+            type: 'transcript',
+            content: message.content || message.message || message.text || '',
+            timestamp: new Date(),
+            metadata: {
+              role: message.role || (isAssistantMessage ? 'assistant' : 'user'),
+              ...message
+            }
+          };
+          if (isAssistantMessage) {
+            console.log('🤖 Assistant message (unknown type):', vapiMessage.content);
+          }
+        } else {
+          console.log('❓ Unknown message type:', message.type, message);
+          return;
+        }
     }
 
     if (vapiMessage) {
