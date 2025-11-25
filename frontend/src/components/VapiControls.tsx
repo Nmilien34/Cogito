@@ -86,7 +86,16 @@ export const VapiControls = () => {
       <div className="flex gap-2 mb-4">
         {status === "idle" || status === "disconnected" ? (
           <button
-            onClick={startConversation}
+            onClick={async () => {
+              console.log('🖱️  Start Voice button clicked');
+              console.log('📊 Current status:', status);
+              console.log('📊 isConfigured:', isConfigured);
+              try {
+                await startConversation();
+              } catch (error) {
+                console.error('❌ Error from startConversation:', error);
+              }
+            }}
             disabled={!isConfigured}
             className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 text-white font-semibold py-3 px-4 rounded-lg transition"
           >
@@ -153,6 +162,41 @@ export const VapiControls = () => {
           Press the physical button to start/stop voice conversations.
           The hardware service automatically switches between radio and AI modes.
         </p>
+      </div>
+
+      {/* Debug Panel */}
+      <div className="mt-4 p-3 bg-slate-800 rounded-lg border border-yellow-600/30">
+        <p className="text-xs text-yellow-400 mb-2 font-semibold">🔍 Debug Info</p>
+        <div className="space-y-1 text-xs font-mono">
+          <p className="text-slate-400">
+            Status: <span className="text-white">{status}</span>
+          </p>
+          <p className="text-slate-400">
+            Configured: <span className="text-white">{isConfigured ? 'Yes' : 'No'}</span>
+          </p>
+          <p className="text-slate-400">
+            Active: <span className="text-white">{status === 'connected' ? 'Yes' : 'No'}</span>
+          </p>
+          <p className="text-slate-400">
+            Messages: <span className="text-white">{messages.length}</span>
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            console.log('🔍 === VAPI DEBUG INFO ===');
+            console.log('Status:', status);
+            console.log('Messages:', messages);
+            console.log('isConfigured:', isConfigured);
+            console.log('Device ID:', deviceId);
+            console.log('Hardware Mode:', hardwareMode);
+            console.log('📋 Check browser Network tab (filter by "WS") for WebSocket connections to Vapi');
+            console.log('📋 Look for connections to wss://api.vapi.ai or similar');
+            alert('Debug info logged to console. Check Network tab for WebSocket connections.');
+          }}
+          className="mt-2 w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition text-sm"
+        >
+          Log Debug Info
+        </button>
       </div>
     </div>
   );

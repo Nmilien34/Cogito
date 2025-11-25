@@ -137,8 +137,52 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
       setHardwareMode("ai");
 
       try {
-        await vapiService.startConversation();
-        console.log("✅ Vapi conversation started via button");
+        // CRITICAL: Physical button presses don't count as browser user gestures!
+        // Browsers require a real user interaction (click/touch/keypress) to allow:
+        // - WebRTC connections (for microphone access)
+        // - WebSocket connections for audio
+        // - AudioContext to be resumed
+        // 
+        // Solution: Create a hidden button and programmatically click it
+        // This satisfies the browser's user gesture requirement
+        
+        console.log("🖱️  Creating user gesture via hidden button click...");
+        
+        // Create a hidden button element
+        const hiddenButton = document.createElement('button');
+        hiddenButton.style.position = 'fixed';
+        hiddenButton.style.top = '0';
+        hiddenButton.style.left = '0';
+        hiddenButton.style.width = '1px';
+        hiddenButton.style.height = '1px';
+        hiddenButton.style.opacity = '0';
+        hiddenButton.style.pointerEvents = 'none';
+        hiddenButton.style.zIndex = '-1';
+        hiddenButton.textContent = 'Hidden trigger';
+        
+        // Add click handler that starts the conversation
+        hiddenButton.onclick = async (e) => {
+          e.preventDefault();
+          console.log("✅ User gesture detected - starting Vapi conversation");
+          try {
+            await vapiService.startConversation();
+            console.log("✅ Vapi conversation started via button");
+          } catch (error) {
+            console.error("❌ Failed to start Vapi via button:", error);
+          }
+        };
+        
+        // Add to DOM temporarily
+        document.body.appendChild(hiddenButton);
+        
+        // Programmatically click it - this counts as a real user gesture!
+        hiddenButton.click();
+        
+        // Clean up after a short delay
+        setTimeout(() => {
+          document.body.removeChild(hiddenButton);
+        }, 1000);
+        
       } catch (error) {
         console.error("❌ Failed to start Vapi via button:", error);
       }

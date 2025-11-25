@@ -323,22 +323,43 @@ export class VapiService {
       }
 
       // Request microphone permission and resume AudioContext
+      // This is critical for physical button interactions - the browser needs
+      // a user gesture to allow audio/WebRTC, and physical buttons don't count
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
         console.log('✅ Microphone permission granted');
+        console.log('🎤 Audio tracks:', stream.getAudioTracks().map(t => ({
+          id: t.id,
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState
+        })));
+        
+        // Keep the stream alive briefly to help with WebRTC connection
+        // Vapi will request its own stream, but this helps establish permissions
+        setTimeout(() => {
+          stream.getTracks().forEach(track => track.stop());
+        }, 100);
       } catch (error) {
-        console.warn('⚠️  Microphone permission issue:', error);
+        console.error('❌ Microphone permission issue:', error);
+        throw new Error(`Microphone access denied: ${error}`);
       }
 
       console.log('📞 Calling vapi.start() with assistantId:', this.assistantId);
+      console.log('🔍 Vapi SDK instance:', this.vapi);
+      console.log('🔍 Checking Vapi SDK methods...');
+      
+      // Log all available methods on the Vapi instance for debugging
+      const vapiMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(this.vapi));
+      console.log('📋 Available Vapi methods:', vapiMethods);
       
       // Set up event listeners BEFORE calling start() to catch the event immediately
       let callStartResolve: (() => void) | null = null;
       let callStartReject: ((error: Error) => void) | null = null;
       
-      const onCallStart = () => {
-        console.log('✅ call-start event received!');
+      const onCallStart = (data?: any) => {
+        console.log('✅ call-start event received!', data || '');
+        console.log('📞 Call data:', JSON.stringify(data, null, 2));
         if (callStartResolve) {
           callStartResolve();
         }
@@ -347,14 +368,22 @@ export class VapiService {
       const onError = (error: any) => {
         console.error('❌ Vapi error while waiting for call-start:', error);
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
+        console.error('❌ Error type:', typeof error);
+        console.error('❌ Error constructor:', error?.constructor?.name);
         if (callStartReject) {
           callStartReject(new Error(error.message || error.toString() || 'Vapi error occurred'));
         }
       };
 
       // Set up listeners BEFORE starting
+      console.log('📡 Setting up event listeners...');
       this.vapi.on('call-start', onCallStart);
       this.vapi.on('error', onError);
+      
+      // Also listen for any other events that might fire
+      this.vapi.on('*', (eventName: string, data: any) => {
+        console.log(`🔍 Vapi event fired: ${eventName}`, data);
+      });
       
       // Call vapi.start() - it resolves quickly but the actual connection happens via events
       let startResult;
