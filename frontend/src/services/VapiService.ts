@@ -42,6 +42,9 @@ export class VapiService {
   private onSpeechEndCallback?: () => void;
 
   constructor(config: VapiServiceConfig) {
+    console.log('🔧 Initializing Vapi SDK with publicKey:', config.publicKey ? '✅ Set' : '❌ Missing');
+    console.log('🔧 Assistant ID:', config.assistantId || '❌ Missing');
+    
     this.vapi = new Vapi(config.publicKey);
     this.assistantId = config.assistantId;
     this.onMessageCallback = config.onMessage;
@@ -52,6 +55,39 @@ export class VapiService {
 
     this.setupEventListeners();
     this.setupAudioContextResume();
+    
+    // Log all events for debugging
+    this.setupDebugEventListeners();
+  }
+  
+  /**
+   * Set up debug event listeners to see all Vapi events
+   */
+  private setupDebugEventListeners() {
+    // Listen to all possible events to debug
+    const allPossibleEvents = [
+      'call-start',
+      'call-end',
+      'speech-start',
+      'speech-end',
+      'message',
+      'error',
+      'volume-level',
+      'assistant-speech-start',
+      'assistant-speech-end',
+      'assistant-message',
+      'status-update',
+      'function-call',
+      'function-result',
+      'transcript',
+      'transcript-partial',
+      'conversation-update',
+      'hang',
+      'metadata',
+    ];
+    
+    // Log when any event is registered
+    console.log('📋 Registered Vapi event listeners for:', allPossibleEvents.length, 'event types');
   }
 
   /**
@@ -59,8 +95,8 @@ export class VapiService {
    */
   private setupEventListeners() {
     // Call started
-    this.vapi.on('call-start', () => {
-      console.log('📞 Vapi call started');
+    this.vapi.on('call-start', (data?: any) => {
+      console.log('📞 Vapi call started!', data || '');
       this.isActive = true;
       this.updateStatus('connected');
       // Resume AudioContext if suspended (required for audio playback)
@@ -140,9 +176,13 @@ export class VapiService {
     // Errors
     this.vapi.on('error', (error: any) => {
       console.error('❌ Vapi error:', error);
-      this.handleError(new Error(error.message || 'Vapi error occurred'));
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      this.handleError(new Error(error.message || error.toString() || 'Vapi error occurred'));
       this.updateStatus('error');
     });
+    
+    // Log when event listeners are set up
+    console.log('✅ Vapi event listeners registered');
   }
 
   /**
@@ -275,9 +315,59 @@ export class VapiService {
         console.warn('⚠️  Microphone permission issue:', error);
       }
 
-      await this.vapi.start(this.assistantId);
+      console.log('📞 Calling vapi.start() with assistantId:', this.assistantId);
+      
+      try {
+        // Vapi SDK start() can take either:
+        // 1. Just assistantId (string)
+        // 2. Options object with assistantId property
+        // Try both approaches
+        let startResult;
+        
+        // First, try with just assistantId (current approach)
+        try {
+          startResult = await this.vapi.start(this.assistantId);
+          console.log('📞 vapi.start(assistantId) succeeded:', startResult);
+        } catch (err1) {
+          console.log('⚠️  vapi.start(assistantId) failed, trying with options object:', err1);
+          // Try with options object
+          try {
+            startResult = await this.vapi.start({
+              assistantId: this.assistantId,
+            });
+            console.log('📞 vapi.start({assistantId}) succeeded:', startResult);
+          } catch (err2) {
+            console.error('❌ Both start() approaches failed');
+            console.error('Error 1 (string):', err1);
+            console.error('Error 2 (object):', err2);
+            throw err2;
+          }
+        }
 
-      console.log('✅ Vapi conversation started');
+        console.log('✅ Vapi conversation started - waiting for call-start event...');
+        
+        // Wait a bit and check if call started
+        setTimeout(() => {
+          if (!this.isActive) {
+            console.warn('⚠️  Call did not start after 3 seconds. Possible issues:');
+            console.log('📊 Current status:', this.currentStatus);
+            console.log('📊 isActive:', this.isActive);
+            console.log('📊 Assistant ID:', this.assistantId);
+            console.log('📊 Public Key:', this.vapi ? 'Set' : 'Missing');
+            console.warn('💡 Check:');
+            console.warn('   1. Is the assistantId correct in Vapi dashboard?');
+            console.warn('   2. Is the publicKey valid?');
+            console.warn('   3. Are there any network errors?');
+            console.warn('   4. Check browser console for Vapi SDK errors');
+          } else {
+            console.log('✅ Call is active!');
+          }
+        }, 3000);
+      } catch (startError) {
+        console.error('❌ Error calling vapi.start():', startError);
+        console.error('❌ Error stack:', (startError as Error).stack);
+        throw startError;
+      }
       
       // Resume AudioContext again after starting (in case it was suspended)
       setTimeout(() => {
