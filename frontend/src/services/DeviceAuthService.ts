@@ -5,10 +5,46 @@
  * user interaction (no Google OAuth, email OTP, or phone verification).
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../lib/api';
+// Simple localStorage wrapper for web compatibility
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    try {
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.error('Error getting item from localStorage:', error);
+      return null;
+    }
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      console.error('Error setting item in localStorage:', error);
+    }
+  },
+  async removeItem(key: string): Promise<void> {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error('Error removing item from localStorage:', error);
+    }
+  }
+};
 
-const DEVICE_TOKEN_KEY = 'device_token';
+// Simple API utility (can be expanded later)
+const api = {
+  async post(endpoint: string, data?: any) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    return { data: await response.json() };
+  }
+};
+
 const DEVICE_ID_KEY = 'device_id';
 const ACCESS_TOKEN_KEY = 'accessToken';
 
@@ -29,19 +65,19 @@ export class DeviceAuthService {
   public async initialize(): Promise<void> {
     try {
       // Try to get existing device ID
-      let deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+      let deviceId = await storage.getItem(DEVICE_ID_KEY);
 
       if (!deviceId) {
         // Generate new device ID if none exists
         deviceId = this.generateDeviceId();
-        await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+        await storage.setItem(DEVICE_ID_KEY, deviceId);
         console.log('🆔 Generated new device ID:', deviceId);
       }
 
       this.deviceId = deviceId;
 
       // Try to load existing access token
-      const storedToken = await AsyncStorage.getItem(ACCESS_TOKEN_KEY);
+      const storedToken = await storage.getItem(ACCESS_TOKEN_KEY);
       if (storedToken) {
         this.accessToken = storedToken;
         console.log('✅ Loaded existing access token');
@@ -80,7 +116,7 @@ export class DeviceAuthService {
       const mockToken = `device_${this.deviceId}_${Date.now()}`;
 
       this.accessToken = mockToken;
-      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, mockToken);
+      await storage.setItem(ACCESS_TOKEN_KEY, mockToken);
 
       console.log('✅ Device authenticated successfully');
       return mockToken;
@@ -124,7 +160,7 @@ export class DeviceAuthService {
       }
 
       // Clear local storage
-      await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+      await storage.removeItem(ACCESS_TOKEN_KEY);
       this.accessToken = null;
 
       console.log('✅ Device logged out');
@@ -140,8 +176,8 @@ export class DeviceAuthService {
    */
   public async resetDevice(): Promise<void> {
     try {
-      await AsyncStorage.removeItem(DEVICE_ID_KEY);
-      await AsyncStorage.removeItem(ACCESS_TOKEN_KEY);
+      await storage.removeItem(DEVICE_ID_KEY);
+      await storage.removeItem(ACCESS_TOKEN_KEY);
 
       this.deviceId = null;
       this.accessToken = null;

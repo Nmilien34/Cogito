@@ -93,9 +93,9 @@ export class VapiService {
     });
 
     // Volume level (for visualizations)
-    this.vapi.on('volume-level', (volume: number) => {
+    this.vapi.on('volume-level', (_volume: number) => {
       // Can be used for audio visualizations
-      // console.log('🔊 Volume:', volume);
+      // console.log('🔊 Volume:', _volume);
     });
 
     // Errors

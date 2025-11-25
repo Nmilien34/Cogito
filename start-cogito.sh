@@ -81,7 +81,7 @@ if command_exists tmux; then
 
     # Window 3: Web Interface
     tmux new-window -t cogito -n "webapp"
-    tmux send-keys -t cogito:webapp "cd '$SCRIPT_DIR/CogitoSmartRadio/client' && npm run dev" C-m
+    tmux send-keys -t cogito:webapp "cd '$SCRIPT_DIR/frontend' && npm run dev" C-m
 
     # Select first window
     tmux select-window -t cogito:hardware
@@ -129,7 +129,7 @@ elif command_exists screen; then
     screen -S cogito -X screen -t button bash -c "cd '$SCRIPT_DIR/hardware-service/python' && python3 button-vapi-handler.py"
 
     # Add web interface window
-    screen -S cogito -X screen -t webapp bash -c "cd '$SCRIPT_DIR/CogitoSmartRadio/client' && npm run dev"
+    screen -S cogito -X screen -t webapp bash -c "cd '$SCRIPT_DIR/frontend' && npm run dev"
 
     echo ""
     echo "=================================================="
@@ -173,7 +173,7 @@ else
     echo "  python3 button-vapi-handler.py"
     echo ""
     echo "Terminal 3:"
-    echo "  cd '$SCRIPT_DIR/CogitoSmartRadio/client'"
+    echo "  cd '$SCRIPT_DIR/frontend'"
     echo "  npm run dev"
     echo ""
 fi
