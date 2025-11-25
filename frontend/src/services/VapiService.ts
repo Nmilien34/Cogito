@@ -317,33 +317,51 @@ export class VapiService {
 
       console.log('📞 Calling vapi.start() with assistantId:', this.assistantId);
       
-      try {
-        // Vapi SDK start() can take either:
-        // 1. Just assistantId (string)
-        // 2. Options object with assistantId property
-        // Try both approaches
-        let startResult;
-        
-        // First, try with just assistantId (current approach)
+      // Add timeout to detect if vapi.start() hangs
+      const startPromise = (async () => {
         try {
-          startResult = await this.vapi.start(this.assistantId);
-          console.log('📞 vapi.start(assistantId) succeeded:', startResult);
-        } catch (err1) {
-          console.log('⚠️  vapi.start(assistantId) failed, trying with options object:', err1);
-          // Try with options object
+          // Vapi SDK start() can take either:
+          // 1. Just assistantId (string)
+          // 2. Options object with assistantId property
+          // Try both approaches
+          let startResult;
+          
+          // First, try with just assistantId (current approach)
           try {
-            startResult = await this.vapi.start({
-              assistantId: this.assistantId,
-            });
-            console.log('📞 vapi.start({assistantId}) succeeded:', startResult);
-          } catch (err2) {
-            console.error('❌ Both start() approaches failed');
-            console.error('Error 1 (string):', err1);
-            console.error('Error 2 (object):', err2);
-            throw err2;
+            startResult = await this.vapi.start(this.assistantId);
+            console.log('📞 vapi.start(assistantId) succeeded:', startResult);
+            return startResult;
+          } catch (err1) {
+            console.log('⚠️  vapi.start(assistantId) failed, trying with options object:', err1);
+            // Try with options object
+            try {
+              startResult = await this.vapi.start({
+                assistantId: this.assistantId,
+              });
+              console.log('📞 vapi.start({assistantId}) succeeded:', startResult);
+              return startResult;
+            } catch (err2) {
+              console.error('❌ Both start() approaches failed');
+              console.error('Error 1 (string):', err1);
+              console.error('Error 2 (object):', err2);
+              throw err2;
+            }
           }
+        } catch (error) {
+          console.error('❌ Error in startPromise:', error);
+          throw error;
         }
+      })();
 
+      // Add timeout wrapper
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('vapi.start() timed out after 10 seconds. The call may not be connecting.'));
+        }, 10000);
+      });
+
+      try {
+        const startResult = await Promise.race([startPromise, timeoutPromise]);
         console.log('✅ Vapi conversation started - waiting for call-start event...');
         
         // Wait a bit and check if call started
@@ -359,13 +377,17 @@ export class VapiService {
             console.warn('   2. Is the publicKey valid?');
             console.warn('   3. Are there any network errors?');
             console.warn('   4. Check browser console for Vapi SDK errors');
+            console.warn('   5. Check browser Network tab for failed requests to Vapi servers');
           } else {
             console.log('✅ Call is active!');
           }
         }, 3000);
       } catch (startError) {
         console.error('❌ Error calling vapi.start():', startError);
+        console.error('❌ Error message:', (startError as Error).message);
         console.error('❌ Error stack:', (startError as Error).stack);
+        this.updateStatus('error');
+        this.handleError(startError as Error);
         throw startError;
       }
       
