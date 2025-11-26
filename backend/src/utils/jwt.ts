@@ -9,11 +9,9 @@ export const generateAccessToken = (userId: string, email: string): string => {
     type: 'access'
   };
 
-  const options: SignOptions = {
+  return jwt.sign(payload, config.jwtSecret, {
     expiresIn: config.jwtExpiresIn
-  };
-
-  return jwt.sign(payload, config.jwtSecret, options);
+  } as SignOptions);
 };
 
 export const generateRefreshToken = (userId: string, email: string): string => {
@@ -23,11 +21,9 @@ export const generateRefreshToken = (userId: string, email: string): string => {
     type: 'refresh'
   };
 
-  const options: SignOptions = {
+  return jwt.sign(payload, config.jwtRefreshSecret, {
     expiresIn: config.jwtRefreshExpiresIn
-  };
-
-  return jwt.sign(payload, config.jwtRefreshSecret, options);
+  } as SignOptions);
 };
 
 export const verifyAccessToken = (token: string): JWTPayload => {
