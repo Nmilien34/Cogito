@@ -28,7 +28,7 @@ export const authenticate = async (
         return;
       }
 
-      req.user = user.toJSON();
+      req.user = user.toJSON() as any;
       next();
     } catch (error) {
       res.status(401).json({ message: 'Invalid or expired token' });
@@ -42,7 +42,7 @@ export const authenticate = async (
 
 export const optionalAuth = async (
   req: AuthRequest,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
@@ -56,7 +56,7 @@ export const optionalAuth = async (
         const user = await User.findById(decoded.userId);
 
         if (user) {
-          req.user = user.toJSON();
+          req.user = user.toJSON() as any;
         }
       } catch (error) {
         // Invalid token, but continue without user
