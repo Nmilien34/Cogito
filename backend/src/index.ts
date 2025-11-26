@@ -63,8 +63,8 @@ app.use((err: any, _req: Request, res: Response, _next: any) => {
 });
 
 // Initialize Socket.io (service is initialized and manages connections)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _socketService = new SocketService(httpServer);
+// @ts-ignore - Service is created for side effects (initializing socket.io)
+new SocketService(httpServer);
 
 // Start server
 const startServer = async () => {
