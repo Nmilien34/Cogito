@@ -403,6 +403,30 @@ export class VapiService {
       } catch (err) {
         console.error('❌ vapi.start() failed:', err);
 
+        // Extract detailed error from Response object if present
+        if (err && typeof err === 'object') {
+          const errorObj = err as any;
+          console.error('❌ DETAILED ERROR BREAKDOWN:');
+          console.error('  Full error object:', errorObj);
+          console.error('  Error type:', errorObj?.constructor?.name);
+
+          // Check if it's a Response object with error property
+          if (errorObj.error) {
+            console.error('  ⚠️ ERROR PROPERTY:', errorObj.error);
+            console.error('  Error JSON:', JSON.stringify(errorObj.error, null, 2));
+          }
+
+          // Check for message property
+          if (errorObj.message) {
+            console.error('  Message:', errorObj.message);
+          }
+
+          // Check for data property
+          if (errorObj.data !== undefined) {
+            console.error('  Data:', errorObj.data);
+          }
+        }
+
         // Clean up listeners (using any to handle API differences)
         (this.vapi as any).off?.('call-start', onCallStart);
         (this.vapi as any).off?.('error', onError);
