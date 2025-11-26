@@ -385,31 +385,22 @@ export class VapiService {
         console.log(`🔍 Vapi event fired: ${eventName}`, data);
       });
       
-      // Call vapi.start() - it resolves quickly but the actual connection happens via events
+      // Call vapi.start() - v2.5.1 API uses assistantId as string parameter
       let startResult;
       try {
+        console.log('🔍 Calling vapi.start() with assistantId:', this.assistantId);
         startResult = await this.vapi.start(this.assistantId);
         console.log('📞 vapi.start() resolved:', startResult);
-      } catch (err1) {
-        console.log('⚠️  vapi.start(assistantId) failed, trying with options object:', err1);
-        try {
-          startResult = await this.vapi.start({
-            assistantId: this.assistantId,
-          });
-          console.log('📞 vapi.start({assistantId}) succeeded:', startResult);
-        } catch (err2) {
-          console.error('❌ Both start() approaches failed');
-          console.error('Error 1 (string):', err1);
-          console.error('Error 2 (object):', err2);
-          
-          // Clean up listeners
-          this.vapi.off('call-start', onCallStart);
-          this.vapi.off('error', onError);
-          
-          this.updateStatus('error');
-          this.handleError(err2 as Error);
-          throw err2;
-        }
+      } catch (err) {
+        console.error('❌ vapi.start() failed:', err);
+
+        // Clean up listeners (using any to handle API differences)
+        (this.vapi as any).off?.('call-start', onCallStart);
+        (this.vapi as any).off?.('error', onError);
+
+        this.updateStatus('error');
+        this.handleError(err as Error);
+        throw err;
       }
 
       console.log('✅ vapi.start() completed - waiting for call-start event...');
@@ -494,7 +485,7 @@ export class VapiService {
     }
 
     try {
-      this.vapi.send({
+      (this.vapi as any).send?.({
         type: 'add-message',
         message: {
           role: 'user',
@@ -688,7 +679,7 @@ export class VapiService {
     }
 
     try {
-      this.vapi.setMuted(muted);
+      (this.vapi as any).setMuted?.(muted);
       console.log(`🔇 Microphone ${muted ? 'muted' : 'unmuted'}`);
     } catch (error) {
       console.error('❌ Error toggling mute:', error);
@@ -700,7 +691,7 @@ export class VapiService {
    */
   public isMuted(): boolean {
     try {
-      return this.vapi.isMuted();
+      return (this.vapi as any).isMuted?.() || false;
     } catch {
       return false;
     }
