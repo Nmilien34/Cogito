@@ -32,12 +32,12 @@ export class VapiService {
     }
 
     const url = `${this.baseUrl}${endpoint}`;
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
     };
 
-    const options: RequestInit = {
+    const options: any = {
       method,
       headers,
     };

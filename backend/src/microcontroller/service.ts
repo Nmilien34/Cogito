@@ -160,7 +160,7 @@ export class MicrocontrollerService {
       },
       config.jwtSecret,
       {
-        expiresIn: config.jwtExpiresIn
+        expiresIn: '7d' // 7 days
       }
     );
   }

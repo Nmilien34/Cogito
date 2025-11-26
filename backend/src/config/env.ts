@@ -45,4 +45,4 @@ export const config = {
 
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379'
-} as const;
+};
