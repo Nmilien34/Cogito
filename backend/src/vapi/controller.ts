@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { CaregiverMessage } from '../models/CaregiverMessage';
 import { ConversationLog } from '../models/ConversationLog';
-import { User } from '../models/User';
 import { VapiWebhookRequest, VapiToolCallResponse } from './types';
 
 /**
