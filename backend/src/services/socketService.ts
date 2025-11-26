@@ -45,13 +45,21 @@ export class SocketService {
   }
 
   private initialize() {
-    // Authentication middleware
+    console.log('🔧 Initializing Socket.io service...');
+    console.log('📡 CORS origins:', config.corsOrigin);
+    console.log('🚀 Transports enabled: websocket, polling');
+
+    // Authentication middleware (optional for now - allows unauthenticated connections)
     this.io.use(async (socket: AuthenticatedSocket, next) => {
       try {
+        console.log('🔍 New connection attempt from:', socket.handshake.address);
+        console.log('🔍 Connection headers:', socket.handshake.headers);
+
         const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
 
         if (!token) {
-          return next(new Error('Authentication required'));
+          console.log('⚠️  No auth token provided - allowing unauthenticated connection for development');
+          return next(); // Allow connection without auth for now
         }
 
         const decoded = verifyAccessToken(token);
@@ -59,14 +67,17 @@ export class SocketService {
         const user = await User.findById(decoded.userId);
 
         if (!user) {
+          console.log('❌ User not found for token');
           return next(new Error('User not found'));
         }
 
         socket.userId = user._id.toString();
         socket.userEmail = user.email;
+        console.log('✅ Authenticated user:', socket.userEmail);
 
         next();
       } catch (error) {
+        console.error('❌ Auth error:', error);
         next(new Error('Invalid token'));
       }
     });
