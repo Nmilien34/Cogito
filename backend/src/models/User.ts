@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
-import { IUser, UserSettings, UserSubscription, AuthType } from '../types';
+import { IUser, UserSettings, UserSubscription } from '../types';
 
 export interface IUserDocument extends Omit<IUser, 'id'>, Document {}
 
@@ -83,7 +83,7 @@ const userSchema = new Schema<IUserDocument>({
   timestamps: true,
   toJSON: {
     virtuals: true,
-    transform: function(doc, ret) {
+    transform: function(_doc, ret: any) {
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;
