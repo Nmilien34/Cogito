@@ -3,7 +3,7 @@
 Cogito Button Handler for Vapi Integration
 - Press button: Toggle Radio <-> AI Mode
 - AI Mode: Frontend (Chromium) handles Vapi conversation
-- Auto-return to radio after 10s of silence
+- Auto-return to radio after 60s of silence
 """
 
 import RPi.GPIO as GPIO
@@ -17,7 +17,7 @@ import signal
 BUTTON_PIN = 17  # GPIO 17 (BCM numbering)
 HARDWARE_SERVICE_URL = "http://localhost:3001"
 DEBOUNCE_TIME = 0.3  # seconds
-AI_TIMEOUT = 10  # seconds
+AI_TIMEOUT = 60  # seconds - increased to allow Vapi connection time
 ACTIVITY_CHECK_INTERVAL = 1.0  # seconds
 
 # State
