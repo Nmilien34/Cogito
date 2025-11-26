@@ -370,6 +370,20 @@ export class VapiService {
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
         console.error('❌ Error type:', typeof error);
         console.error('❌ Error constructor:', error?.constructor?.name);
+
+        // Extract Response.error if present
+        if (error?.error) {
+          console.error('*** VAPI DETAILED ERROR (from Response.error) ***');
+          console.error(error.error);
+          console.error('JSON:', JSON.stringify(error.error, null, 2));
+        }
+
+        // Also check for nested error properties
+        if (error?.response?.error) {
+          console.error('*** VAPI DETAILED ERROR (from response.error) ***');
+          console.error(error.response.error);
+        }
+
         if (callStartReject) {
           callStartReject(new Error(error.message || error.toString() || 'Vapi error occurred'));
         }
