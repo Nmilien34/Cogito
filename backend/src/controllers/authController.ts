@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import { OAuth2Client } from 'google-auth-library';
-import bcrypt from 'bcryptjs';
 import { AuthRequest, AuthMeta } from '../types';
 import { User } from '../models/User';
 import { OTP } from '../models/OTP';
@@ -131,7 +130,7 @@ export const verifyEmailCode = async (req: AuthRequest, res: Response): Promise<
 // Google OAuth: Verify token
 export const verifyGoogleToken = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { token, clientType } = req.body;
+    const { token, clientType: _clientType } = req.body;
 
     if (!token) {
       res.status(400).json({ message: 'Token is required' });
