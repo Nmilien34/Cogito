@@ -12,7 +12,7 @@ export const startStream = async (req: AuthRequest, res: Response): Promise<void
 
     const { conversationId } = req.params;
     const { threadId } = req.params;
-    const { message, model, style, selectedResources, resources, token } = req.body;
+    const { message, model, style, selectedResources, resources, token: _token } = req.body;
 
     if (!message) {
       res.status(400).json({ message: 'Message is required' });
