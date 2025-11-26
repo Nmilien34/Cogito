@@ -7,7 +7,7 @@ export interface IMessage {
   metadata?: Record<string, any>;
 }
 
-export interface IConversation extends Document {
+export interface IConversationData {
   userId: mongoose.Types.ObjectId;
   title?: string;
   messages: IMessage[];
@@ -16,9 +16,11 @@ export interface IConversation extends Document {
   voiceModel?: string;
   isVoiceConversation: boolean;
   active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
+
+export interface IConversation extends IConversationData, Omit<Document, 'model'> {}
 
 const messageSchema = new Schema<IMessage>({
   role: {
@@ -57,7 +59,7 @@ const conversationSchema = new Schema<IConversation>({
   timestamps: true,
   toJSON: {
     virtuals: true,
-    transform: function(doc, ret) {
+    transform: function(_doc, ret: any) {
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;
