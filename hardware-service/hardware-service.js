@@ -30,6 +30,7 @@ app.use(express.json());
 // State management
 let currentMode = 'radio';  // 'radio' or 'ai'
 let lastSpeechTime = Date.now();
+let vapiConnected = false;  // Track if Vapi call has connected
 
 console.log('Cogito Hardware Service Starting...');
 
@@ -45,7 +46,8 @@ app.post('/api/mode/set', (req, res) => {
     // Enter AI mode
     currentMode = 'ai';
     lastSpeechTime = Date.now();
-    console.log('🎤 AI MODE - Listening');
+    vapiConnected = false;  // Reset connection flag
+    console.log('🎤 AI MODE - Listening (waiting for Vapi connection...)');
 
     // Stop radio
     exec('python3 python/radio-control.py stop', (error) => {
@@ -118,6 +120,17 @@ app.post('/api/ai/activity', (req, res) => {
   res.json({ received: true, mode: currentMode });
 });
 
+// Notify that Vapi has connected (called by frontend when call-start fires)
+app.post('/api/ai/connected', (req, res) => {
+  if (currentMode === 'ai') {
+    vapiConnected = true;
+    lastSpeechTime = Date.now();  // Reset timer when connected
+    console.log('✅ Vapi call connected - starting activity timer');
+    io.emit('vapi-connected', { timestamp: Date.now() });
+  }
+  res.json({ received: true, vapiConnected });
+});
+
 // Check for recent activity (for timeout logic)
 app.get('/api/ai/activity', (req, res) => {
   const timeSinceLastSpeech = Date.now() - lastSpeechTime;
@@ -125,7 +138,8 @@ app.get('/api/ai/activity', (req, res) => {
   
   res.json({
     speech_detected: isActive,
-    seconds_since_speech: timeSinceLastSpeech / 1000,
+    seconds_since_speech: vapiConnected ? timeSinceLastSpeech / 1000 : 0,  // Don't count timeout until connected
+    vapi_connected: vapiConnected,
     mode: currentMode
   });
 });

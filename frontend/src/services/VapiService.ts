@@ -6,6 +6,7 @@
  */
 
 import Vapi from '@vapi-ai/web';
+import { HARDWARE_SERVICE_URL } from '../config';
 
 export type ConversationStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
 
@@ -360,6 +361,17 @@ export class VapiService {
       const onCallStart = (data?: any) => {
         console.log('✅ call-start event received!', data || '');
         console.log('📞 Call data:', JSON.stringify(data, null, 2));
+        
+        // Notify hardware service that Vapi has connected
+        // This allows the timeout to start only after connection
+        fetch(`${HARDWARE_SERVICE_URL}/api/ai/connected`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timestamp: Date.now() })
+        }).catch(err => {
+          console.warn('⚠️  Could not notify hardware service of Vapi connection:', err);
+        });
+        
         if (callStartResolve) {
           callStartResolve();
         }
