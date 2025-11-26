@@ -411,16 +411,22 @@ export class VapiService {
         console.log('  isActive:', this.isActive);
         console.log('  currentStatus:', this.currentStatus);
 
-        // Wrap vapi.start() to intercept and log promise rejection details
-        await this.vapi.start(this.assistantId)
+        // Call vapi.start() - handle both Promise and void return types
+        const startResult = this.vapi.start(this.assistantId);
+
+        // Wrap in Promise.resolve() to handle both SDK versions
+        // Some versions return Promise, others return void
+        await Promise.resolve(startResult)
           .then((result: any) => {
-            console.log('📞 vapi.start() resolved:', result);
+            console.log('📞 vapi.start() completed:', result);
             return result;
           })
           .catch((response: any) => {
             // Log the full response immediately
             console.error('*** VAPI START REJECTED - FULL RESPONSE ***');
             console.error('Response object:', response);
+            console.error('Response type:', typeof response);
+            console.error('Response constructor:', response?.constructor?.name);
 
             // Extract and stringify the error property
             if (response?.error) {
@@ -508,11 +514,6 @@ export class VapiService {
           resolve();
         }
       });
-      
-      // Resume AudioContext again after starting (in case it was suspended)
-      setTimeout(() => {
-        this.resumeAudioContext();
-      }, 100);
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
       this.updateStatus('error');
