@@ -148,7 +148,7 @@ export class VapiService {
     // Assistant speech started (AI is speaking) - try multiple event names
     const assistantSpeechStartEvents = ['assistant-speech-start', 'assistant-speech-update', 'tts-start'];
     assistantSpeechStartEvents.forEach(eventName => {
-      this.vapi.on(eventName, () => {
+      (this.vapi as any).on(eventName, () => {
         console.log(`🤖 Assistant started speaking (${eventName})`);
         // Resume AudioContext to ensure audio plays
         this.resumeAudioContext();
@@ -158,7 +158,7 @@ export class VapiService {
     // Assistant speech ended (AI stopped speaking)
     const assistantSpeechEndEvents = ['assistant-speech-end', 'tts-end'];
     assistantSpeechEndEvents.forEach(eventName => {
-      this.vapi.on(eventName, () => {
+      (this.vapi as any).on(eventName, () => {
         console.log(`🤖 Assistant stopped speaking (${eventName})`);
       });
     });
@@ -166,7 +166,7 @@ export class VapiService {
     // Assistant message (AI response)
     const assistantMessageEvents = ['assistant-message', 'assistant-response'];
     assistantMessageEvents.forEach(eventName => {
-      this.vapi.on(eventName, (message: any) => {
+      (this.vapi as any).on(eventName, (message: any) => {
         console.log(`🤖 Assistant message (${eventName}):`, message);
         this.handleMessage({
           type: 'transcript',
@@ -394,13 +394,12 @@ export class VapiService {
       this.vapi.on('call-start', onCallStart);
       this.vapi.on('error', onError);
       
-      // Also listen for any other events that might fire
-      this.vapi.on('*', (eventName: string, data: any) => {
+      // Also listen for any other events that might fire (cast to any for wildcard)
+      (this.vapi as any).on('*', (eventName: string, data: any) => {
         console.log(`🔍 Vapi event fired: ${eventName}`, data);
       });
       
       // Call vapi.start() - v2.5.1 API uses assistantId as string parameter
-      let startResult;
       try {
         // Detailed logging for debugging
         console.log('❌ VAPI START DEBUG:');
@@ -412,8 +411,26 @@ export class VapiService {
         console.log('  isActive:', this.isActive);
         console.log('  currentStatus:', this.currentStatus);
 
-        startResult = await this.vapi.start(this.assistantId);
-        console.log('📞 vapi.start() resolved:', startResult);
+        // Wrap vapi.start() to intercept and log promise rejection details
+        await this.vapi.start(this.assistantId)
+          .then((result: any) => {
+            console.log('📞 vapi.start() resolved:', result);
+            return result;
+          })
+          .catch((response: any) => {
+            // Log the full response immediately
+            console.error('*** VAPI START REJECTED - FULL RESPONSE ***');
+            console.error('Response object:', response);
+
+            // Extract and stringify the error property
+            if (response?.error) {
+              console.error('*** VAPI ERROR PROPERTY (STRINGIFIED) ***');
+              console.error(JSON.stringify(response.error, null, 2));
+            }
+
+            // Re-throw to be caught by outer try-catch
+            throw response;
+          });
       } catch (err) {
         console.error('❌ vapi.start() failed:', err);
 
@@ -473,8 +490,8 @@ export class VapiService {
           console.error('   7. Check if assistant is active in Vapi dashboard');
           
           // Clean up listeners
-          this.vapi.off('call-start', onCallStart);
-          this.vapi.off('error', onError);
+          (this.vapi as any).off?.('call-start', onCallStart);
+          (this.vapi as any).off?.('error', onError);
           
           callStartResolve = null;
           callStartReject = null;
@@ -486,8 +503,8 @@ export class VapiService {
         // If already active, resolve immediately
         if (this.isActive) {
           clearTimeout(timeout);
-          this.vapi.off('call-start', onCallStart);
-          this.vapi.off('error', onError);
+          (this.vapi as any).off?.('call-start', onCallStart);
+          (this.vapi as any).off?.('error', onError);
           resolve();
         }
       });

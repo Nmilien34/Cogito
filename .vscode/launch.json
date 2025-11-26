@@ -9,14 +9,14 @@
             "request": "launch",
             "name": "Launch Chrome - Cogito Smart Radio",
             "url": "http://localhost:5173",
-            "webRoot": "${workspaceFolder}/CogitoSmartRadio/client"
+            "webRoot": "${workspaceFolder}/frontend"
         },
         {
             "type": "chrome",
             "request": "launch",
             "name": "Launch Chrome - Backend API",
             "url": "http://localhost:4000/api/health",
-            "webRoot": "${workspaceFolder}/CogitoSmartRadio/server"
+            "webRoot": "${workspaceFolder}/backend"
         }
     ]
 }

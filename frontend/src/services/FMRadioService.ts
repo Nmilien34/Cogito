@@ -28,7 +28,7 @@ class FMRadioService {
     volume: 50,
   };
   private listeners: Set<(state: FMRadioState) => void> = new Set();
-  private statusPollInterval: NodeJS.Timeout | null = null;
+  private statusPollInterval: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.connect();
