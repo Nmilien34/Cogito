@@ -4,6 +4,17 @@
 
 Vapi is working perfectly on your local machine. The issue is specific to the Pi environment.
 
+## ⚠️ IMPORTANT: Network Configuration
+
+**If your backend (port 4000) is running on your Mac, not the Pi:**
+
+The Pi needs to connect to your Mac's IP address, not `localhost`. See `PI_NETWORK_CONFIG.md` for detailed instructions on:
+- Finding your Mac's IP address
+- Updating the Pi's `.env` file
+- Configuring firewall settings
+
+**Note:** Vapi itself connects directly from the browser to Vapi's servers, so it should work even if the backend connection fails. But other features (reminders, etc.) need the backend.
+
 ## 🚀 Quick Fix for Pi
 
 ### Step 1: Push Your Changes

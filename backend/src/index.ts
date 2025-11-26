@@ -29,7 +29,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
 // Health check
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -49,12 +49,12 @@ app.use('/api/vapi', vapiRoutes);
 app.use('/api/microcontroller', microcontrollerRoutes);
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
 // Global error handler
-app.use((err: any, req: Request, res: Response, next: any) => {
+app.use((err: any, _req: Request, res: Response, _next: any) => {
   console.error('Unhandled error:', err);
   res.status(err.status || 500).json({
     message: err.message || 'Internal server error',
@@ -62,8 +62,9 @@ app.use((err: any, req: Request, res: Response, next: any) => {
   });
 });
 
-// Initialize Socket.io
-const socketService = new SocketService(httpServer);
+// Initialize Socket.io (service is initialized and manages connections)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _socketService = new SocketService(httpServer);
 
 // Start server
 const startServer = async () => {
