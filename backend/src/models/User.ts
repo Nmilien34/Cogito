@@ -94,10 +94,7 @@ const userSchema = new Schema<IUserDocument>({
   }
 });
 
-// Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ googleId: 1 });
-userSchema.index({ phoneNumber: 1 });
-userSchema.index({ referralCode: 1 });
+// Indexes are already created by unique: true on the fields
+// No need for explicit index definitions here
 
 export const User = mongoose.model<IUserDocument>('User', userSchema);

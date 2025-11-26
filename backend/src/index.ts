@@ -41,12 +41,15 @@ app.get('/health', (_req: Request, res: Response) => {
 import vapiRoutes from './vapi/routes';
 // Import Microcontroller routes
 import microcontrollerRoutes from './microcontroller/routes';
+// Import Reminder routes
+import reminderRoutes from './routes/reminderRoutes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/vapi', vapiRoutes);
 app.use('/api/microcontroller', microcontrollerRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
