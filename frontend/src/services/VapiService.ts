@@ -388,7 +388,16 @@ export class VapiService {
       // Call vapi.start() - v2.5.1 API uses assistantId as string parameter
       let startResult;
       try {
-        console.log('🔍 Calling vapi.start() with assistantId:', this.assistantId);
+        // Detailed logging for debugging
+        console.log('❌ VAPI START DEBUG:');
+        console.log('  assistantId:', this.assistantId);
+        console.log('  assistantId type:', typeof this.assistantId);
+        console.log('  assistantId length:', this.assistantId?.length);
+        console.log('  Vapi instance:', this.vapi);
+        console.log('  Vapi constructor:', this.vapi?.constructor?.name);
+        console.log('  isActive:', this.isActive);
+        console.log('  currentStatus:', this.currentStatus);
+
         startResult = await this.vapi.start(this.assistantId);
         console.log('📞 vapi.start() resolved:', startResult);
       } catch (err) {
