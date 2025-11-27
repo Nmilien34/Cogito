@@ -8,6 +8,7 @@ export default {
         accent: "#F5C644", // Yellowish gold
         danger: "#D7263D",
         background: "#FAFAF8", // Off-white background
+        paper: "#FAFAF8", // Warm off-white paper color
         slate: {
           950: "#FAFAF8", // Override dark backgrounds with off-white
         },

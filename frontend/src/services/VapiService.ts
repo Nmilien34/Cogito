@@ -7,6 +7,7 @@
 
 import Vapi from '@vapi-ai/web';
 import { HARDWARE_SERVICE_URL } from '../config';
+import { getContextualConfig } from '../config/vapiConfig';
 
 export type ConversationStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
 
@@ -270,6 +271,37 @@ export class VapiService {
   }
 
   /**
+   * Generate human-friendly time context string
+   * This is injected into the AI's context so it knows the current time/date
+   */
+  private generateTimeContext(now: Date): string {
+    // Format date
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const dayOfWeek = daysOfWeek[now.getDay()];
+    const month = months[now.getMonth()];
+    const date = now.getDate();
+    const year = now.getFullYear();
+
+    // Format time in 12-hour format
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+    // Add ordinal suffix (1st, 2nd, 3rd, etc.)
+    const getOrdinalSuffix = (n: number): string => {
+      const s = ['th', 'st', 'nd', 'rd'];
+      const v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
+    };
+
+    return `It is currently ${dayOfWeek}, ${month} ${date}${getOrdinalSuffix(date)}, ${year} at ${displayHours}:${displayMinutes} ${ampm}.`;
+  }
+
+  /**
    * Get available audio input devices
    */
   public async getAudioDevices(): Promise<MediaDeviceInfo[]> {
@@ -361,7 +393,25 @@ export class VapiService {
       const onCallStart = (data?: any) => {
         console.log('✅ call-start event received!', data || '');
         console.log('📞 Call data:', JSON.stringify(data, null, 2));
-        
+
+        // Inject current time/date into the conversation context
+        // This ensures the AI knows the current time without needing external API calls
+        const now = new Date();
+        const timeContext = this.generateTimeContext(now);
+
+        try {
+          (this.vapi as any).send?.({
+            type: 'add-message',
+            message: {
+              role: 'system',
+              content: `IMPORTANT: ${timeContext} When the user asks about the time or date, use this exact information. This is the current, real-time information.`
+            }
+          });
+          console.log('📅 Time context injected into conversation');
+        } catch (error) {
+          console.warn('⚠️  Could not inject time context:', error);
+        }
+
         // Notify hardware service that Vapi has connected
         // This allows the timeout to start only after connection
         fetch(`${HARDWARE_SERVICE_URL}/api/ai/connected`, {
@@ -371,7 +421,7 @@ export class VapiService {
         }).catch(err => {
           console.warn('⚠️  Could not notify hardware service of Vapi connection:', err);
         });
-        
+
         if (callStartResolve) {
           callStartResolve();
         }
@@ -423,8 +473,26 @@ export class VapiService {
         console.log('  isActive:', this.isActive);
         console.log('  currentStatus:', this.currentStatus);
 
-        // Call vapi.start() - handle both Promise and void return types
-        const startResult = this.vapi.start(this.assistantId);
+        // Generate current time/date context to inject into the conversation
+        const now = new Date();
+        const timeContext = this.generateTimeContext(now);
+        console.log('📅 Injecting time context:', timeContext);
+
+        // Get full assistant configuration from our config file
+        // This gives us complete control over the assistant from code!
+        const assistantConfig = getContextualConfig(timeContext);
+
+        console.log('🔧 Starting Vapi with full programmatic config');
+        console.log('📝 Config:', {
+          model: assistantConfig.model?.model,
+          temperature: assistantConfig.model?.temperature,
+          firstMessage: assistantConfig.firstMessage,
+          silenceTimeout: assistantConfig.silenceTimeoutSeconds
+        });
+
+        // Call vapi.start() with full programmatic control
+        // Everything (prompt, temperature, voice, etc.) is managed in code!
+        const startResult = this.vapi.start(this.assistantId, assistantConfig as any);
 
         // Wrap in Promise.resolve() to handle both SDK versions
         // Some versions return Promise, others return void
