@@ -142,12 +142,12 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
         // - WebRTC connections (for microphone access)
         // - WebSocket connections for audio
         // - AudioContext to be resumed
-        // 
+        //
         // Solution: Create a hidden button and programmatically click it
-        // This satisfies the browser's user gesture requirement
-        
+        // The click handler must SYNCHRONOUSLY resume AudioContext and start Vapi
+
         console.log("🖱️  Creating user gesture via hidden button click...");
-        
+
         // Create a hidden button element
         const hiddenButton = document.createElement('button');
         hiddenButton.style.position = 'fixed';
@@ -159,30 +159,47 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
         hiddenButton.style.pointerEvents = 'none';
         hiddenButton.style.zIndex = '-1';
         hiddenButton.textContent = 'Hidden trigger';
-        
+
         // Add click handler that starts the conversation
         hiddenButton.onclick = async (e) => {
           e.preventDefault();
           console.log("✅ User gesture detected - starting Vapi conversation");
+
           try {
+            // CRITICAL: Resume AudioContext IMMEDIATELY within the user gesture
+            // This must happen synchronously before any async operations
+            const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+              const tempContext = new AudioContextClass();
+              if (tempContext.state === 'suspended') {
+                await tempContext.resume();
+                console.log('✅ AudioContext manually resumed in click handler');
+              }
+              // Keep context alive briefly
+              setTimeout(() => {
+                tempContext.close().catch(() => {});
+              }, 500);
+            }
+
+            // Now start the conversation - this happens within the same user gesture
             await vapiService.startConversation();
             console.log("✅ Vapi conversation started via button");
           } catch (error) {
             console.error("❌ Failed to start Vapi via button:", error);
           }
         };
-        
+
         // Add to DOM temporarily
         document.body.appendChild(hiddenButton);
-        
+
         // Programmatically click it - this counts as a real user gesture!
         hiddenButton.click();
-        
+
         // Clean up after a short delay
         setTimeout(() => {
           document.body.removeChild(hiddenButton);
         }, 1000);
-        
+
       } catch (error) {
         console.error("❌ Failed to start Vapi via button:", error);
       }
