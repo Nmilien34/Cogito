@@ -149,8 +149,8 @@ echo ""
 if command -v pm2 >/dev/null 2>&1; then
     echo "✅ PM2 already installed ($(pm2 --version))"
 else
-    echo "📦 Installing PM2 globally..."
-    npm install -g pm2
+    echo "📦 Installing PM2 globally (requires sudo)..."
+    sudo npm install -g pm2
     echo "✅ PM2 installed successfully"
 fi
 

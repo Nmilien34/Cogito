@@ -101,8 +101,8 @@ echo "✅ Logs directory created"
 
 # Install PM2 if needed
 if ! command -v pm2 >/dev/null 2>&1; then
-    echo "📦 Installing PM2..."
-    npm install -g pm2
+    echo "📦 Installing PM2 (requires sudo)..."
+    sudo npm install -g pm2
     echo "✅ PM2 installed"
 else
     echo "✅ PM2 already installed"
