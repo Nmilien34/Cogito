@@ -206,17 +206,16 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
     });
 
     // Listen for auto-timeout or button press → STOP voice AI
-    // TEMP DISABLED: Commenting out stop logic to debug Vapi connection race condition
     socket.on("stop-voice", (data) => {
-      console.log("📻 Returning to radio mode - Stopping Vapi conversation (DISABLED FOR DEBUG)", data);
-      // setHardwareMode("radio"); // TEMP DISABLED - prevents premature mode switch
+      console.log("📻 Button pressed - Returning to radio mode, stopping AI", data);
+      setHardwareMode("radio");
 
-      // try {
-      //   vapiService.stopConversation(); // TEMP DISABLED - prevents premature stop
-      //   console.log("✅ Vapi conversation stopped");
-      // } catch (error) {
-      //   console.error("❌ Failed to stop Vapi:", error);
-      // }
+      try {
+        vapiService.stopConversation();
+        console.log("✅ Vapi conversation stopped");
+      } catch (error) {
+        console.error("❌ Failed to stop Vapi:", error);
+      }
     });
 
     // Listen for general mode changes
