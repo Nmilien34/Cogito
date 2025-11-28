@@ -47,11 +47,9 @@ export const KioskDashboard = () => {
         {/* Header */}
         <div className="bg-[#FAF9F6] px-8 py-6 flex justify-between items-center border-b border-[#E8E6E1]">
           <div className="flex-1 flex items-center gap-4">
-            <img
-              src="https://img.sanishtech.com/u/67a7b7d6583f701a106d7cad17cf47cc.jpg"
-              alt="Ruth's profile"
-              className="w-16 h-16 rounded-full object-cover shadow-lg border-2 border-white"
-            />
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#007AFF] to-[#5856D6] flex items-center justify-center text-white text-3xl font-bold shadow-lg border-2 border-white">
+              R
+            </div>
             <div>
               <h1 className="text-4xl font-bold text-[#1C1C1E] mb-1.5 tracking-tight">
                 Hello, Ruth!
