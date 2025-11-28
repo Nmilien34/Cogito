@@ -98,8 +98,33 @@ export const KioskDashboard = () => {
                   <div className="text-2xl text-[#1C1C1E] font-semibold mt-1">
                     WBLS
                   </div>
-                  <div className="text-lg text-[#6C6C70] mt-2 font-medium">
-                    Use hardware buttons
+
+                  {/* Station Controls */}
+                  <div className="flex gap-3 mt-4 items-center justify-center">
+                    <button
+                      onClick={() => {
+                        // Scan down 0.1 MHz
+                        fetch('http://localhost:4000/api/radio/scan-down', { method: 'POST' })
+                          .catch(err => console.error('Failed to scan down:', err));
+                      }}
+                      className="px-6 py-3 bg-[#F2F2F7] text-[#007AFF] rounded-[12px] text-base font-semibold hover:bg-[#E5E5EA] active:scale-[0.98] transition-all"
+                    >
+                      ◀ Down
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Scan up 0.1 MHz
+                        fetch('http://localhost:4000/api/radio/scan-up', { method: 'POST' })
+                          .catch(err => console.error('Failed to scan up:', err));
+                      }}
+                      className="px-6 py-3 bg-[#F2F2F7] text-[#007AFF] rounded-[12px] text-base font-semibold hover:bg-[#E5E5EA] active:scale-[0.98] transition-all"
+                    >
+                      Up ▶
+                    </button>
+                  </div>
+
+                  <div className="text-sm text-[#6C6C70] mt-3 font-medium">
+                    Or use hardware buttons
                   </div>
                 </>
               ) : (

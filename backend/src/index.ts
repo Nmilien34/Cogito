@@ -65,6 +65,8 @@ import vapiRoutes from './vapi/routes';
 import microcontrollerRoutes from './microcontroller/routes';
 // Import Reminder routes
 import reminderRoutes from './routes/reminderRoutes';
+// Import Radio routes
+import radioRoutes from './radio/routes';
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -72,6 +74,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/vapi', vapiRoutes);
 app.use('/api/microcontroller', microcontrollerRoutes);
 app.use('/api/reminders', reminderRoutes);
+app.use('/api/radio', radioRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
