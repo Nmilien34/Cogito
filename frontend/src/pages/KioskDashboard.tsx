@@ -126,18 +126,16 @@ export const KioskDashboard = () => {
               {isVoiceActive ? (
                 <button
                   onClick={stopConversation}
-                  className="flex-1 py-5 bg-[#FF3B30] text-white rounded-2xl text-lg font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-[#FF453A] active:scale-95 transition-all"
+                  className="flex-1 py-5 bg-[#FF3B30] text-white rounded-[16px] text-lg font-semibold flex items-center justify-center shadow-md hover:bg-[#FF453A] active:scale-[0.98] transition-all"
                 >
-                  <span>🛑</span>
                   End Call
                 </button>
               ) : (
                 <button
                   onClick={startConversation}
                   disabled={isConnecting || isVoiceActive}
-                  className="flex-1 py-5 bg-[#007AFF] text-white rounded-2xl text-lg font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-[#0051D5] active:scale-95 transition-all disabled:opacity-50"
+                  className="flex-1 py-5 bg-[#007AFF] text-white rounded-[16px] text-lg font-semibold flex items-center justify-center shadow-md hover:bg-[#0051D5] active:scale-[0.98] transition-all disabled:opacity-50"
                 >
-                  <span>🎤</span>
                   {isConnecting ? 'Connecting...' : 'Talk to Cogito'}
                 </button>
               )}
@@ -214,12 +212,10 @@ export const KioskDashboard = () => {
 
         {/* Bottom Controls */}
         <div className="grid grid-cols-2 gap-6 px-8 py-6 bg-[#FAF9F6] border-t border-[#E8E6E1]">
-          <button className="py-6 bg-[#34C759] text-white rounded-[20px] text-2xl font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-[#2FB350] active:scale-95 transition-all">
-            <span className="text-3xl">📞</span>
+          <button className="py-6 bg-[#34C759] text-white rounded-[16px] text-xl font-semibold flex items-center justify-center shadow-md hover:bg-[#2FB350] active:scale-[0.98] transition-all">
             Call Nurse
           </button>
-          <button className="py-6 bg-[#007AFF] text-white rounded-[20px] text-2xl font-bold flex items-center justify-center gap-3 shadow-lg hover:bg-[#0051D5] active:scale-95 transition-all">
-            <span className="text-3xl">💬</span>
+          <button className="py-6 bg-[#007AFF] text-white rounded-[16px] text-xl font-semibold flex items-center justify-center shadow-md hover:bg-[#0051D5] active:scale-[0.98] transition-all">
             Family Messages
           </button>
         </div>

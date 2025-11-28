@@ -2,6 +2,7 @@ import { BrowserRouter, NavLink, Route, Routes, useLocation } from "react-router
 import { AudioProvider } from "./context/AudioProvider";
 import { ReminderProvider } from "./context/ReminderProvider";
 import { VapiProvider } from "./context/VapiProvider";
+import { WelcomeScreen } from "./pages/WelcomeScreen";
 import { KioskDashboard } from "./pages/KioskDashboard";
 import { RuthDashboard } from "./pages/RuthDashboard";
 import { AdminInsights } from "./pages/AdminInsights";
@@ -10,7 +11,7 @@ import { Settings } from "./pages/Settings";
 // Layout wrapper to conditionally show navigation
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const isKioskMode = location.pathname === '/';
+  const isKioskMode = location.pathname === '/' || location.pathname === '/kiosk';
 
   if (isKioskMode) {
     // Kiosk mode - no navigation, full screen
@@ -29,7 +30,7 @@ function Layout({ children }: { children: React.ReactNode }) {
           </div>
           <nav className="flex gap-4 text-lg font-semibold">
             <NavLink
-              to="/"
+              to="/kiosk"
               className={({ isActive }) =>
                 `px-5 py-2 rounded-full ${isActive ? "bg-accent text-white" : "bg-gray-200 text-gray-700"}`
               }
@@ -76,7 +77,8 @@ function App() {
           <VapiProvider>
             <Layout>
               <Routes>
-                <Route path="/" element={<KioskDashboard />} />
+                <Route path="/" element={<WelcomeScreen />} />
+                <Route path="/kiosk" element={<KioskDashboard />} />
                 <Route path="/dashboard" element={<RuthDashboard />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/admin" element={<AdminInsights />} />
