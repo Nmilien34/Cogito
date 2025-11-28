@@ -28,7 +28,6 @@ export interface VapiAssistantConfig {
   };
   firstMessage?: string;
   recordingEnabled?: boolean;
-  endCallOnSilence?: boolean;
   silenceTimeoutSeconds?: number;
   variableValues?: Record<string, string>;
 }
@@ -207,8 +206,8 @@ Be the gentle, patient, reliable friend Ruth needs.`
     // VOICE CONFIGURATION
     // ===================================
     voice: {
-      // provider: '11labs', // or 'deepgram', 'playht', etc.
-      // voiceId: 'your-voice-id', // Uncomment and set your preferred voice
+      provider: 'openai', // Using OpenAI's TTS (most reliable default)
+      voiceId: 'alloy', // OpenAI voice options: alloy, echo, fable, onyx, nova, shimmer
     },
 
     // ===================================
@@ -218,7 +217,8 @@ Be the gentle, patient, reliable friend Ruth needs.`
 
     recordingEnabled: false, // Set to true if you want to record conversations
 
-    endCallOnSilence: true, // End call after silence
+    // Note: endCallOnSilence has been removed from Vapi API
+    // Use silenceTimeoutSeconds in model configuration instead
     silenceTimeoutSeconds: 30, // How long to wait before ending (seconds)
 
     // ===================================
@@ -321,7 +321,7 @@ When asked about time/date, use the CURRENT TIME above.`;
   }
 
   config.firstMessage = "Emergency services. What is your emergency?";
-  config.endCallOnSilence = false; // Don't auto-end
+  // Note: Call will not auto-end - removed endCallOnSilence property
 
   return config;
 };
