@@ -231,4 +231,145 @@ export const markMessageRead = async (req: Request, res: Response): Promise<void
   }
 };
 
+/**
+ * Vapi function: Get current time
+ * Returns the current time in a human-friendly format
+ */
+export const getCurrentTime = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const vapiRequest = req.body as VapiWebhookRequest;
+    const now = new Date();
+
+    // Format time in 12-hour format with AM/PM
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+    const timeString = `${displayHours}:${displayMinutes} ${ampm}`;
+
+    console.log('🕐 Vapi requesting current time:', timeString);
+
+    const response: VapiToolCallResponse = {
+      results: [{
+        toolCallId: vapiRequest.message?.toolCalls?.[0]?.id || '',
+        result: `The current time is ${timeString}.`
+      }]
+    };
+    res.json(response);
+  } catch (error) {
+    console.error('❌ Get time error:', error);
+    const response: VapiToolCallResponse = {
+      results: [{
+        toolCallId: req.body.message?.toolCalls?.[0]?.id || '',
+        result: 'Failed to get current time'
+      }]
+    };
+    res.status(500).json(response);
+  }
+};
+
+/**
+ * Vapi function: Get current date
+ * Returns the current date with day of week in a human-friendly format
+ */
+export const getCurrentDate = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const vapiRequest = req.body as VapiWebhookRequest;
+    const now = new Date();
+
+    // Format date
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const dayOfWeek = daysOfWeek[now.getDay()];
+    const month = months[now.getMonth()];
+    const date = now.getDate();
+    const year = now.getFullYear();
+
+    // Add ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
+    const getOrdinalSuffix = (n: number): string => {
+      const s = ['th', 'st', 'nd', 'rd'];
+      const v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
+    };
+
+    const dateString = `${dayOfWeek}, ${month} ${date}${getOrdinalSuffix(date)}, ${year}`;
+
+    console.log('📅 Vapi requesting current date:', dateString);
+
+    const response: VapiToolCallResponse = {
+      results: [{
+        toolCallId: vapiRequest.message?.toolCalls?.[0]?.id || '',
+        result: `Today is ${dateString}.`
+      }]
+    };
+    res.json(response);
+  } catch (error) {
+    console.error('❌ Get date error:', error);
+    const response: VapiToolCallResponse = {
+      results: [{
+        toolCallId: req.body.message?.toolCalls?.[0]?.id || '',
+        result: 'Failed to get current date'
+      }]
+    };
+    res.status(500).json(response);
+  }
+};
+
+/**
+ * Vapi function: Get current date and time
+ * Returns both date and time in a human-friendly format
+ */
+export const getDateTime = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const vapiRequest = req.body as VapiWebhookRequest;
+    const now = new Date();
+
+    // Format date
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const dayOfWeek = daysOfWeek[now.getDay()];
+    const month = months[now.getMonth()];
+    const date = now.getDate();
+    const year = now.getFullYear();
+
+    // Format time
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
+
+    const getOrdinalSuffix = (n: number): string => {
+      const s = ['th', 'st', 'nd', 'rd'];
+      const v = n % 100;
+      return s[(v - 20) % 10] || s[v] || s[0];
+    };
+
+    const dateTimeString = `${dayOfWeek}, ${month} ${date}${getOrdinalSuffix(date)}, ${year} at ${displayHours}:${displayMinutes} ${ampm}`;
+
+    console.log('📅🕐 Vapi requesting current date and time:', dateTimeString);
+
+    const response: VapiToolCallResponse = {
+      results: [{
+        toolCallId: vapiRequest.message?.toolCalls?.[0]?.id || '',
+        result: `It is currently ${dateTimeString}.`
+      }]
+    };
+    res.json(response);
+  } catch (error) {
+    console.error('❌ Get date/time error:', error);
+    const response: VapiToolCallResponse = {
+      results: [{
+        toolCallId: req.body.message?.toolCalls?.[0]?.id || '',
+        result: 'Failed to get current date and time'
+      }]
+    };
+    res.status(500).json(response);
+  }
+};
+
 
