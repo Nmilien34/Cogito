@@ -93,9 +93,12 @@ export const KioskDashboard = () => {
                       backgroundClip: 'text'
                     }}
                   >
-                    FM Radio
+                    98.5 FM
                   </div>
-                  <div className="text-xl text-[#6C6C70] mt-2 font-medium">
+                  <div className="text-2xl text-[#1C1C1E] font-semibold mt-1">
+                    WBLS
+                  </div>
+                  <div className="text-lg text-[#6C6C70] mt-2 font-medium">
                     Use hardware buttons
                   </div>
                 </>
