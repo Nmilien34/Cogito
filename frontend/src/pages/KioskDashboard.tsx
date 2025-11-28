@@ -14,7 +14,8 @@ export const KioskDashboard = () => {
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const isVoiceActive = status === 'connected' || status === 'connecting';
+  const isVoiceActive = status === 'connected';
+  const isConnecting = status !== 'idle' && status !== 'disconnected' && status !== 'connected';
   const upcomingReminders = reminders?.filter((r: any) => !r.completed).slice(0, 2) || [];
 
   // Update time every second
@@ -45,13 +46,20 @@ export const KioskDashboard = () => {
 
         {/* Header */}
         <div className="bg-[#FAF9F6] px-8 py-6 flex justify-between items-center border-b border-[#E8E6E1]">
-          <div className="flex-1">
-            <h1 className="text-4xl font-bold text-[#1C1C1E] mb-1.5 tracking-tight">
-              🌟 Hello, Ruth!
-            </h1>
-            <p className="text-lg text-[#6C6C70] font-medium">
-              Your radio friend is here
-            </p>
+          <div className="flex-1 flex items-center gap-4">
+            <img
+              src="https://img.sanishtech.com/u/67a7b7d6583f701a106d7cad17cf47cc.jpg"
+              alt="Ruth's profile"
+              className="w-16 h-16 rounded-full object-cover shadow-lg border-2 border-white"
+            />
+            <div>
+              <h1 className="text-4xl font-bold text-[#1C1C1E] mb-1.5 tracking-tight">
+                Hello, Ruth!
+              </h1>
+              <p className="text-lg text-[#6C6C70] font-medium">
+                Your radio friend is here
+              </p>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-[52px] font-bold leading-none mb-1.5 text-[#1C1C1E] tracking-tight">
@@ -123,11 +131,11 @@ export const KioskDashboard = () => {
               ) : (
                 <button
                   onClick={startConversation}
-                  disabled={status === 'connecting'}
+                  disabled={isConnecting || isVoiceActive}
                   className="flex-1 py-5 bg-[#007AFF] text-white rounded-2xl text-lg font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-[#0051D5] active:scale-95 transition-all disabled:opacity-50"
                 >
                   <span>🎤</span>
-                  {status === 'connecting' ? 'Connecting...' : 'Talk to Cogito'}
+                  {isConnecting ? 'Connecting...' : 'Talk to Cogito'}
                 </button>
               )}
             </div>
