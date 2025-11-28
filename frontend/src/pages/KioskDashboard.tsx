@@ -84,15 +84,7 @@ export const KioskDashboard = () => {
             <div className="text-center my-8 flex-1 flex flex-col justify-center">
               {hardwareMode === 'radio' ? (
                 <>
-                  <div
-                    className="text-6xl font-extrabold leading-none mb-2 tracking-tight"
-                    style={{
-                      background: 'linear-gradient(135deg, #007AFF 0%, #5856D6 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text'
-                    }}
-                  >
+                  <div className="text-6xl font-extrabold leading-none mb-2 tracking-tight text-[#007AFF]">
                     98.5 FM
                   </div>
                   <div className="text-2xl text-[#1C1C1E] font-semibold mt-1">
@@ -129,20 +121,23 @@ export const KioskDashboard = () => {
                 </>
               ) : (
                 <>
-                  <div
-                    className="text-6xl font-extrabold leading-none mb-2 tracking-tight"
-                    style={{
-                      background: 'linear-gradient(135deg, #34C759 0%, #30D158 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text'
-                    }}
-                  >
-                    Voice AI
+                  <div className="text-6xl font-extrabold leading-none mb-2 tracking-tight text-[#34C759]">
+                    🤖 Cogito
                   </div>
-                  <div className="text-xl text-[#6C6C70] mt-2 font-medium">
+                  <div className="text-2xl text-[#6C6C70] mt-2 font-semibold">
                     {isVoiceActive ? 'Listening...' : 'Ready to talk'}
                   </div>
+
+                  {/* Speaking Animation */}
+                  {isVoiceActive && (
+                    <div className="flex gap-2 justify-center items-center mt-4">
+                      <div className="w-3 h-8 bg-[#34C759] rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
+                      <div className="w-3 h-12 bg-[#34C759] rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-3 h-10 bg-[#34C759] rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                      <div className="w-3 h-12 bg-[#34C759] rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="w-3 h-8 bg-[#34C759] rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
