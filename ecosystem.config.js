@@ -5,8 +5,9 @@
  * 1. Hardware Service - Manages GPIO buttons and radio control
  * 2. Button Handler - Python script for hardware button events
  * 3. Encoder Service - ANO Rotary Encoder for volume & radio control
- * 4. Backend API - Express server with Socket.io
- * 5. Frontend Web App - React application
+ * 4. Emergency Reboot - Safety button for system reboot
+ * 5. Backend API - Express server with Socket.io
+ * 6. Frontend Web App - React application
  *
  * Usage:
  *   pm2 start ecosystem.config.js
@@ -59,6 +60,22 @@ module.exports = {
       },
       error_file: './logs/encoder-error.log',
       out_file: './logs/encoder-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    },
+    {
+      name: 'emergency-reboot',
+      cwd: './hardware-service/python',
+      script: 'emergency-reboot-handler.py',
+      interpreter: 'python3',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '50M',
+      env: {
+        PYTHONUNBUFFERED: '1',
+      },
+      error_file: './logs/reboot-error.log',
+      out_file: './logs/reboot-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     },
     {
