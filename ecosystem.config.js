@@ -4,8 +4,9 @@
  * This file manages all services required for the Cogito system:
  * 1. Hardware Service - Manages GPIO buttons and radio control
  * 2. Button Handler - Python script for hardware button events
- * 3. Backend API - Express server with Socket.io
- * 4. Frontend Web App - React application
+ * 3. Encoder Service - ANO Rotary Encoder for volume & radio control
+ * 4. Backend API - Express server with Socket.io
+ * 5. Frontend Web App - React application
  *
  * Usage:
  *   pm2 start ecosystem.config.js
@@ -42,6 +43,22 @@ module.exports = {
       max_memory_restart: '100M',
       error_file: './logs/button-error.log',
       out_file: './logs/button-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+    },
+    {
+      name: 'encoder-service',
+      cwd: './hardware-service/python',
+      script: 'encoder_service.py',
+      interpreter: 'python3',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '100M',
+      env: {
+        PYTHONUNBUFFERED: '1',
+      },
+      error_file: './logs/encoder-error.log',
+      out_file: './logs/encoder-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     },
     {

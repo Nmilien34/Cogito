@@ -1,0 +1,16 @@
+# ANO Rotary Encoder Dependencies
+# Install with: pip3 install -r requirements-encoder.txt
+
+# Core Adafruit Libraries
+adafruit-circuitpython-seesaw>=1.15.0
+adafruit-blinka>=8.0.0
+
+# I2C and GPIO
+RPi.GPIO>=0.7.1
+smbus2>=0.4.2
+
+# HTTP client for API calls
+requests>=2.28.0
+
+# Board support
+adafruit-circuitpython-busdevice>=5.2.0

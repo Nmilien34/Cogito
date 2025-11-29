@@ -1,0 +1,23 @@
+[Unit]
+Description=Cogito ANO Rotary Encoder Service
+After=network.target
+
+[Service]
+Type=simple
+User=radioassistant
+Group=radioassistant
+WorkingDirectory=/home/radioassistant/Desktop/Cogito/hardware-service/python
+ExecStart=/usr/bin/python3 /home/radioassistant/Desktop/Cogito/hardware-service/python/encoder_service.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+# Security settings
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
