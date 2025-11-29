@@ -17,7 +17,7 @@ import {
 import { io, Socket } from "socket.io-client";
 import { VapiService, type VapiMessage, type ConversationStatus } from "../services/VapiService";
 import { deviceAuthService } from "../services/DeviceAuthService";
-import { VAPI_CONFIG, HARDWARE_SERVICE_URL, validateVapiConfig } from "../config";
+import { VAPI_CONFIG, HARDWARE_SERVICE_URL, SOCKET_URL, validateVapiConfig } from "../config";
 
 interface VapiContextValue {
   vapiService: VapiService | null;
@@ -49,7 +49,8 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
   const [hardwareMode, setHardwareMode] = useState<"radio" | "ai">("radio");
   const [radioFrequency, setRadioFrequency] = useState(99.1); // Default FM frequency
   const [radioIsOn, setRadioIsOn] = useState(false);
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null); // Hardware service socket
+  const backendSocketRef = useRef<Socket | null>(null); // Backend socket for radio events
 
   // Initialize device authentication on mount
   useEffect(() => {
@@ -228,18 +229,6 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
       setHardwareMode(data.mode);
     });
 
-    // Listen for radio frequency changes (from encoder or API)
-    socket.on("radio:frequency-changed", (data: { frequency: number; timestamp: Date }) => {
-      console.log("📻 Radio frequency changed:", data.frequency, "MHz");
-      setRadioFrequency(data.frequency);
-    });
-
-    // Listen for radio state changes (on/off)
-    socket.on("radio:state-changed", (data: { isOn: boolean; timestamp: Date }) => {
-      console.log("📻 Radio state changed:", data.isOn ? "ON" : "OFF");
-      setRadioIsOn(data.isOn);
-    });
-
     // Connection errors
     socket.on("connect_error", (error) => {
       console.error("❌ Hardware service connection error:", error.message);
@@ -255,12 +244,60 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
       socket.off("start-voice");
       socket.off("stop-voice");
       socket.off("mode-changed");
-      socket.off("radio:frequency-changed");
-      socket.off("radio:state-changed");
       socket.disconnect();
       socketRef.current = null;
     };
   }, [vapiService]);
+
+  // Connect to backend Socket.io for radio events
+  useEffect(() => {
+    console.log("🔌 Connecting to backend for radio events:", SOCKET_URL);
+
+    const backendSocket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10,
+    });
+
+    backendSocketRef.current = backendSocket;
+
+    // Connection established
+    backendSocket.on("connect", () => {
+      console.log("✅ Connected to backend Socket.io");
+      console.log("📡 Backend Socket ID:", backendSocket.id);
+    });
+
+    // Listen for radio frequency changes (from encoder or API)
+    backendSocket.on("radio:frequency-changed", (data: { frequency: number; timestamp: Date }) => {
+      console.log("📻 Radio frequency changed:", data.frequency, "MHz");
+      setRadioFrequency(data.frequency);
+    });
+
+    // Listen for radio state changes (on/off)
+    backendSocket.on("radio:state-changed", (data: { isOn: boolean; timestamp: Date }) => {
+      console.log("📻 Radio state changed:", data.isOn ? "ON" : "OFF");
+      setRadioIsOn(data.isOn);
+    });
+
+    // Connection errors
+    backendSocket.on("connect_error", (error) => {
+      console.error("❌ Backend Socket.io connection error:", error.message);
+    });
+
+    backendSocket.on("disconnect", (reason) => {
+      console.log("🔌 Disconnected from backend Socket.io:", reason);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log("🧹 Cleaning up backend Socket.io connection");
+      backendSocket.off("radio:frequency-changed");
+      backendSocket.off("radio:state-changed");
+      backendSocket.disconnect();
+      backendSocketRef.current = null;
+    };
+  }, []);
 
   // Start conversation handler
   const startConversation = useCallback(async () => {
