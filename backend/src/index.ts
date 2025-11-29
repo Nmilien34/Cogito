@@ -7,7 +7,7 @@ import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { config } from './config/env';
 import { connectDatabase } from './config/database';
-import { SocketService } from './services/socketService';
+import { SocketService, setSocketService } from './services/socketService';
 import authRoutes from './routes/authRoutes';
 import conversationRoutes from './routes/conversationRoutes';
 
@@ -90,9 +90,9 @@ app.use((err: any, _req: Request, res: Response, _next: any) => {
   });
 });
 
-// Initialize Socket.io (service is initialized and manages connections)
-// @ts-ignore - Service is created for side effects (initializing socket.io)
-new SocketService(httpServer);
+// Initialize Socket.io and store instance for use in controllers
+const socketService = new SocketService(httpServer);
+setSocketService(socketService);
 
 // Start server
 const startServer = async () => {

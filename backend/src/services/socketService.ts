@@ -208,4 +208,37 @@ export class SocketService {
   getIO(): Server {
     return this.io;
   }
+
+  /**
+   * Broadcast radio frequency change to all connected clients
+   */
+  broadcastRadioChange(frequency: number) {
+    this.io.emit('radio:frequency-changed', {
+      frequency,
+      timestamp: new Date()
+    });
+    console.log(`📻 Broadcast: Radio frequency changed to ${frequency} MHz`);
+  }
+
+  /**
+   * Broadcast radio state change (on/off) to all connected clients
+   */
+  broadcastRadioState(isOn: boolean) {
+    this.io.emit('radio:state-changed', {
+      isOn,
+      timestamp: new Date()
+    });
+    console.log(`📻 Broadcast: Radio ${isOn ? 'ON' : 'OFF'}`);
+  }
+}
+
+// Export singleton instance
+let socketServiceInstance: SocketService | null = null;
+
+export function getSocketService(): SocketService | null {
+  return socketServiceInstance;
+}
+
+export function setSocketService(instance: SocketService) {
+  socketServiceInstance = instance;
 }

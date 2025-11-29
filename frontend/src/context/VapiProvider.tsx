@@ -28,6 +28,8 @@ interface VapiContextValue {
   isAuthenticated: boolean;
   deviceId: string;
   hardwareMode: "radio" | "ai";
+  radioFrequency: number;
+  radioIsOn: boolean;
   startConversation: () => Promise<void>;
   stopConversation: () => void;
   toggleMute: () => void;
@@ -45,6 +47,8 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [deviceId, setDeviceId] = useState("");
   const [hardwareMode, setHardwareMode] = useState<"radio" | "ai">("radio");
+  const [radioFrequency, setRadioFrequency] = useState(99.1); // Default FM frequency
+  const [radioIsOn, setRadioIsOn] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   // Initialize device authentication on mount
@@ -224,6 +228,18 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
       setHardwareMode(data.mode);
     });
 
+    // Listen for radio frequency changes (from encoder or API)
+    socket.on("radio:frequency-changed", (data: { frequency: number; timestamp: Date }) => {
+      console.log("📻 Radio frequency changed:", data.frequency, "MHz");
+      setRadioFrequency(data.frequency);
+    });
+
+    // Listen for radio state changes (on/off)
+    socket.on("radio:state-changed", (data: { isOn: boolean; timestamp: Date }) => {
+      console.log("📻 Radio state changed:", data.isOn ? "ON" : "OFF");
+      setRadioIsOn(data.isOn);
+    });
+
     // Connection errors
     socket.on("connect_error", (error) => {
       console.error("❌ Hardware service connection error:", error.message);
@@ -239,6 +255,8 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
       socket.off("start-voice");
       socket.off("stop-voice");
       socket.off("mode-changed");
+      socket.off("radio:frequency-changed");
+      socket.off("radio:state-changed");
       socket.disconnect();
       socketRef.current = null;
     };
@@ -300,6 +318,8 @@ export const VapiProvider = ({ children }: PropsWithChildren) => {
         isAuthenticated,
         deviceId,
         hardwareMode,
+        radioFrequency,
+        radioIsOn,
         startConversation,
         stopConversation,
         toggleMute,

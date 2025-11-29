@@ -8,11 +8,21 @@ import { Request, Response } from 'express';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
+import { getSocketService } from '../services/socketService';
 
 const execAsync = promisify(exec);
 
 // Path to radio control script
 const RADIO_SCRIPT = path.join(__dirname, '../../../hardware-service/python/radio-control.py');
+
+/**
+ * Parse frequency from radio script output
+ * Output format: "📻 Tuned to 99.1 MHz"
+ */
+function parseFrequency(output: string): number | null {
+  const match = output.match(/(\d+\.\d+)\s*MHz/i);
+  return match ? parseFloat(match[1]) : null;
+}
 
 /**
  * Execute radio control command
@@ -40,10 +50,18 @@ export async function scanUp(_req: Request, res: Response) {
     console.log('📻 Scanning radio up...');
     const output = await executeRadioCommand('up');
 
+    // Parse and broadcast frequency change
+    const frequency = parseFrequency(output);
+    if (frequency) {
+      const socketService = getSocketService();
+      socketService?.broadcastRadioChange(frequency);
+    }
+
     res.json({
       success: true,
       message: 'Scanned up',
-      output: output.trim()
+      output: output.trim(),
+      frequency
     });
   } catch (error: any) {
     console.error('❌ Failed to scan up:', error);
@@ -62,10 +80,18 @@ export async function scanDown(_req: Request, res: Response) {
     console.log('📻 Scanning radio down...');
     const output = await executeRadioCommand('down');
 
+    // Parse and broadcast frequency change
+    const frequency = parseFrequency(output);
+    if (frequency) {
+      const socketService = getSocketService();
+      socketService?.broadcastRadioChange(frequency);
+    }
+
     res.json({
       success: true,
       message: 'Scanned down',
-      output: output.trim()
+      output: output.trim(),
+      frequency
     });
   } catch (error: any) {
     console.error('❌ Failed to scan down:', error);
@@ -93,10 +119,15 @@ export async function setFrequency(req: Request, res: Response) {
     console.log(`📻 Setting frequency to ${frequency} MHz...`);
     const output = await executeRadioCommand(`set ${frequency}`);
 
+    // Broadcast frequency change
+    const socketService = getSocketService();
+    socketService?.broadcastRadioChange(parseFloat(frequency));
+
     return res.json({
       success: true,
       message: `Set to ${frequency} MHz`,
-      output: output.trim()
+      output: output.trim(),
+      frequency: parseFloat(frequency)
     });
   } catch (error: any) {
     console.error('❌ Failed to set frequency:', error);
@@ -115,10 +146,21 @@ export async function radioOn(_req: Request, res: Response) {
     console.log('📻 Turning radio ON...');
     const output = await executeRadioCommand('on');
 
+    // Broadcast radio state
+    const socketService = getSocketService();
+    socketService?.broadcastRadioState(true);
+
+    // Parse and broadcast initial frequency
+    const frequency = parseFrequency(output);
+    if (frequency) {
+      socketService?.broadcastRadioChange(frequency);
+    }
+
     res.json({
       success: true,
       message: 'Radio ON',
-      output: output.trim()
+      output: output.trim(),
+      frequency
     });
   } catch (error: any) {
     console.error('❌ Failed to turn radio on:', error);
@@ -136,6 +178,10 @@ export async function radioOff(_req: Request, res: Response) {
   try {
     console.log('📻 Turning radio OFF...');
     const output = await executeRadioCommand('off');
+
+    // Broadcast radio state
+    const socketService = getSocketService();
+    socketService?.broadcastRadioState(false);
 
     res.json({
       success: true,

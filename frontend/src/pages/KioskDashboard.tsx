@@ -9,7 +9,7 @@ import { useVapi } from "../context/VapiProvider";
 import { useRemindersContext } from "../context/ReminderProvider";
 
 export const KioskDashboard = () => {
-  const { status, hardwareMode, startConversation, stopConversation } = useVapi();
+  const { status, hardwareMode, radioFrequency, radioIsOn, startConversation, stopConversation } = useVapi();
   const { reminders } = useRemindersContext();
 
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -83,10 +83,10 @@ export const KioskDashboard = () => {
               {hardwareMode === 'radio' ? (
                 <>
                   <div className="text-6xl font-extrabold leading-none mb-2 tracking-tight text-[#007AFF]">
-                    98.5 FM
+                    {radioFrequency.toFixed(1)} FM
                   </div>
                   <div className="text-2xl text-[#1C1C1E] font-semibold mt-1">
-                    WBLS
+                    {radioIsOn ? 'Playing' : 'Radio'}
                   </div>
 
                   {/* Station Controls */}
