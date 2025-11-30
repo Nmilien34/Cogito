@@ -40,11 +40,21 @@ def check_speech_activity():
                     timeout=1.5
                 )
                 data = resp.json()
+                
+                # Only start timeout AFTER Vapi has connected
+                vapi_connected = data.get('vapi_connected', False)
                 seconds_since = data.get('seconds_since_speech', AI_TIMEOUT + 1)
 
-                if seconds_since >= AI_TIMEOUT:
+                if not vapi_connected:
+                    # Vapi hasn't connected yet - wait patiently
+                    # Don't start the timeout timer until connection is established
+                    # This prevents premature timeout while Vapi is still connecting
+                    pass
+                elif seconds_since >= AI_TIMEOUT:
+                    # Vapi is connected AND we've had silence for AI_TIMEOUT seconds
                     print(f"\n⏱️  Timeout ({AI_TIMEOUT}s) reached, returning to RADIO mode")
                     set_mode('radio')
+                # If vapi_connected is True but seconds_since < AI_TIMEOUT, continue waiting
 
             except requests.exceptions.RequestException:
                 pass  # Silently ignore connection errors
